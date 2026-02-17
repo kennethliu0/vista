@@ -168,7 +168,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Refresh list items to show updated status
 		m.refreshListItems()
-		return m, nil
+		// Re-subscribe: serviceStatusMsg may arrive via the log channel
+		return m, waitForLog(m.logCh)
 
 	case tea.QuitMsg:
 		// ctrl+c sends QuitMsg — stop all services before exiting

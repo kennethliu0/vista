@@ -25,6 +25,17 @@ type globalViewConfig struct {
 	Services []string `json:"services"`
 }
 
+func expandHome(path string) (string, error) {
+	if path == "~" || len(path) >= 2 && path[:2] == "~/" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("cannot determine home directory: %w", err)
+		}
+		return filepath.Join(home, path[1:]), nil
+	}
+	return path, nil
+}
+
 func loadVistaJSON(path string) ([]*Service, []*globalView, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -47,12 +58,16 @@ func loadVistaJSON(path string) ([]*Service, []*globalView, error) {
 			return nil, nil, fmt.Errorf("duplicate service name %q in %s", sc.Name, path)
 		}
 		serviceNames[sc.Name] = true
-		if sc.Dir != "" {
-			if _, err := os.Stat(sc.Dir); os.IsNotExist(err) {
-				return nil, nil, fmt.Errorf("service %q: directory %q does not exist", sc.Name, sc.Dir)
+		dir, err := expandHome(sc.Dir)
+		if err != nil {
+			return nil, nil, fmt.Errorf("service %q: %w", sc.Name, err)
+		}
+		if dir != "" {
+			if _, err := os.Stat(dir); os.IsNotExist(err) {
+				return nil, nil, fmt.Errorf("service %q: directory %q does not exist", sc.Name, dir)
 			}
 		}
-		services[i] = &Service{Name: sc.Name, Cmd: sc.Cmd, Dir: sc.Dir}
+		services[i] = &Service{Name: sc.Name, Cmd: sc.Cmd, Dir: dir}
 	}
 
 	var views []*globalView

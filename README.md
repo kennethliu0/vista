@@ -23,14 +23,13 @@ go build -o bin/vista .
 ## Configuration
 
 Define your services in `~/.config/vista/vista.json` (or `./vista.json` for project-local config).
-Service directories must be absolute paths.
 
 ```json
 {
   "services": [
-    {"name": "backend",  "cmd": "go run .", "dir": "/path/to/backend"},
-    {"name": "frontend", "cmd": "npm start", "dir": "/path/to/frontend"},
-    {"name": "worker",   "cmd": "python worker.py", "dir": "/path/to/worker"}
+    {"name": "backend",  "cmd": "go run .", "dir": "~/projects/backend"},
+    {"name": "frontend", "cmd": "npm start", "dir": "~/projects/frontend"},
+    {"name": "worker",   "cmd": "python worker.py", "dir": "~/projects/worker"}
   ],
   "globalViews": [
     {"name": "All", "services": []},
@@ -45,7 +44,7 @@ Service directories must be absolute paths.
 |-------|-------------|
 | `name` | Display name in the sidebar |
 | `cmd` | Shell command to run (executed via `sh -c`) |
-| `dir` | Absolute path to the working directory |
+| `dir` | Working directory. Supports `~` expansion. |
 
 ### Global Views
 

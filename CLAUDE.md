@@ -25,7 +25,7 @@ Vista is a Bubble Tea TUI that manages multiple service processes and aggregates
 
 ## Key Conventions
 
-- Use absolute paths for service `dir` fields (`~` is not expanded by Go)
+- `~` and `~/...` are supported in service `dir` fields and are expanded at load time via `expandHome`
 - Commands are executed through `sh -c`, so shell syntax (pipes, loops) works
 - `Start()` and `Stop()` return `nil` as a `tea.Cmd` (not from inside the closure) when the operation is a no-op, to avoid sending nil `tea.Msg` which panics Bubble Tea
 - Status updates flow through two paths: `serviceStatusMsg` for start/stop events, and `logMsg` with `[vista]` prefix for process lifecycle events logged to the buffer

@@ -1,0 +1,145 @@
+package main
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"os/exec"
+	"syscall"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+const MaxLogLines = 10000
+
+// Status represents the running state of a service.
+type Status int
+
+const (
+	Stopped Status = iota
+	Running
+	Error
+)
+
+func (s Status) String() string {
+	switch s {
+	case Running:
+		return "Running"
+	case Error:
+		return "Error"
+	default:
+		return "Stopped"
+	}
+}
+
+// Service represents a managed process in the monorepo.
+type Service struct {
+	Name   string
+	Cmd    string
+	Dir    string
+	Status Status
+	Logs   []string
+	PID    int
+
+	cmd    *exec.Cmd
+	cancel context.CancelFunc
+}
+
+// Title implements list.DefaultItem.
+func (s *Service) Title() string {
+	return fmt.Sprintf("%s %s", statusDot(s.Status), s.Name)
+}
+
+// Description implements list.DefaultItem.
+func (s *Service) Description() string {
+	return s.Status.String()
+}
+
+// FilterValue implements list.Item.
+func (s *Service) FilterValue() string {
+	return s.Name
+}
+
+// Start launches the service process and streams logs to logCh.
+func (s *Service) Start(logCh chan<- logMsg) tea.Cmd {
+	if s.Status == Running {
+		return nil
+	}
+	return func() tea.Msg {
+
+		ctx, cancel := context.WithCancel(context.Background())
+		s.cancel = cancel
+
+		s.cmd = exec.CommandContext(ctx, "sh", "-c", s.Cmd)
+		s.cmd.Dir = s.Dir
+		s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+		stdout, err := s.cmd.StdoutPipe()
+		if err != nil {
+			s.Status = Error
+			return serviceStatusMsg{serviceName: s.Name, status: Error, err: err}
+		}
+		s.cmd.Stderr = s.cmd.Stdout // merge stderr into stdout
+
+		if err := s.cmd.Start(); err != nil {
+			s.Status = Error
+			return serviceStatusMsg{serviceName: s.Name, status: Error, err: err}
+		}
+
+		s.PID = s.cmd.Process.Pid
+		s.Status = Running
+
+		// Stream output in a goroutine
+		go func() {
+			scanner := bufio.NewScanner(stdout)
+			scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+			for scanner.Scan() {
+				logCh <- logMsg{serviceName: s.Name, line: scanner.Text()}
+			}
+			// Process exited — determine final status
+			err := s.cmd.Wait()
+			finalStatus := Stopped
+			if err != nil && ctx.Err() == nil {
+				// Process failed on its own (not cancelled)
+				finalStatus = Error
+				logCh <- logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] process exited with error: %v", err)}
+			} else {
+				logCh <- logMsg{serviceName: s.Name, line: "[vista] process stopped"}
+			}
+			s.Status = finalStatus
+			s.PID = 0
+			logCh <- logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus)}
+		}()
+
+		return serviceStatusMsg{serviceName: s.Name, status: Running, pid: s.PID}
+	}
+}
+
+// Stop terminates the service and its process group.
+func (s *Service) Stop() tea.Cmd {
+	if s.Status != Running || s.PID == 0 {
+		return nil
+	}
+
+	pid := s.PID
+	name := s.Name
+
+	// Cancel context
+	if s.cancel != nil {
+		s.cancel()
+	}
+
+	return func() tea.Msg {
+		// Kill the process group with SIGTERM
+		_ = syscall.Kill(-pid, syscall.SIGTERM)
+
+		// Wait briefly, then SIGKILL as fallback
+		go func() {
+			time.Sleep(2 * time.Second)
+			_ = syscall.Kill(-pid, syscall.SIGKILL)
+		}()
+
+		return serviceStatusMsg{serviceName: name, status: Stopped}
+	}
+}

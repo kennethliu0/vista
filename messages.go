@@ -21,6 +21,9 @@ type logMsg struct {
 	time        time.Time
 }
 
+// renderTickMsg fires after a short debounce interval to batch viewport refreshes.
+type renderTickMsg struct{}
+
 // serviceStatusMsg reports a service status change.
 type serviceStatusMsg struct {
 	serviceName string

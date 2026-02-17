@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -22,9 +23,11 @@ type model struct {
 	width        int
 	height       int
 	ready        bool
-	focusSidebar bool
-	sidebarWidth int
-	nextViewNum  int // counter for auto-naming global views
+	focusSidebar  bool
+	sidebarWidth  int
+	nextViewNum   int  // counter for auto-naming global views
+	viewportDirty bool // logs arrived but viewport not yet refreshed
+	renderPending bool // a renderTickMsg is already scheduled
 }
 
 func newModel(services []*Service, views []*globalView, logCh chan logMsg) model {
@@ -128,21 +131,31 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		// Refresh viewport if this log is relevant to the current view
-		needsRefresh := false
+		// Mark viewport dirty if this log is relevant to the current view
 		if svc := m.selectedService(); svc != nil && svc.Name == msg.serviceName {
-			needsRefresh = true
+			m.viewportDirty = true
 		} else if gv := m.selectedGlobalView(); gv != nil && gv.services[msg.serviceName] {
-			needsRefresh = true
+			m.viewportDirty = true
 		}
-		if needsRefresh {
-			m.refreshViewport()
-			m.viewport.GotoBottom()
+		if m.viewportDirty && !m.renderPending {
+			m.renderPending = true
+			cmds = append(cmds, tea.Tick(16*time.Millisecond, func(time.Time) tea.Msg {
+				return renderTickMsg{}
+			}))
 		}
 
 		// Re-subscribe to the log channel
 		cmds = append(cmds, waitForLog(m.logCh))
 		return m, tea.Batch(cmds...)
+
+	case renderTickMsg:
+		m.renderPending = false
+		if m.viewportDirty {
+			m.viewportDirty = false
+			m.refreshViewport()
+			m.viewport.GotoBottom()
+		}
+		return m, nil
 
 	case serviceStatusMsg:
 		// Update service status

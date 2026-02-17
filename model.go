@@ -24,6 +24,7 @@ type model struct {
 	height       int
 	ready        bool
 	focusSidebar  bool
+	sidebarHidden bool
 	sidebarWidth  int
 	nextViewNum   int  // counter for auto-naming global views
 	viewportDirty bool // logs arrived but viewport not yet refreshed
@@ -109,16 +110,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		contentHeight := m.height - 4
 
 		m.sidebarWidth = defaultSidebarWidth
-		viewportWidth := m.width - m.sidebarWidth - 4 // account for borders
-		if viewportWidth < 1 {
-			viewportWidth = 1
-		}
-
 		m.list.SetSize(m.sidebarWidth-2, contentHeight-2)
-		m.viewport.Width = viewportWidth - 2
-		if m.viewport.Width < 1 {
-			m.viewport.Width = 1
-		}
+		m.viewport.Width = m.viewportContentWidth()
 		m.viewport.Height = contentHeight - 2
 
 		m.refreshViewport()
@@ -211,6 +204,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.focusSidebar = !m.focusSidebar
 			return m, nil
 
+		case "h":
+			m.sidebarHidden = !m.sidebarHidden
+			if m.sidebarHidden {
+				m.focusSidebar = false
+			}
+			m.viewport.Width = m.viewportContentWidth()
+			m.refreshViewport()
+			return m, nil
+
 		case "s":
 			if m.focusSidebar {
 				if svc := m.selectedService(); svc != nil && svc.Status == Stopped || svc != nil && svc.Status == Error {
@@ -297,6 +299,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// viewportContentWidth returns the viewport's inner text width (inside border and padding).
+// vpStyle.Width() = content+padding; m.viewport.Width = vpStyle.Width() - 2 (padding).
+func (m *model) viewportContentWidth() int {
+	var w int
+	if m.sidebarHidden {
+		w = m.width - 4 // (m.width - 2) - 2
+	} else {
+		w = m.width - m.sidebarWidth - 6 // (m.width - sidebarWidth - 4) - 2
+	}
+	if w < 1 {
+		w = 1
+	}
+	return w
 }
 
 // syncSelection updates the viewport when the list cursor changes.
@@ -422,47 +439,67 @@ func (m model) View() string {
 	}
 
 	// Title bar
-	title := titleStyle.Width(m.width).Render(" Vista — Log Aggregator")
+	titleText := " Vista — Log Aggregator"
+	if m.sidebarHidden {
+		sel := m.list.SelectedItem()
+		switch item := sel.(type) {
+		case *Service:
+			titleText += " — " + item.Name
+		case *globalView:
+			titleText += " — " + item.name
+		}
+	}
+	title := titleStyle.Width(m.width).Render(titleText)
 
 	// Sidebar with focus-dependent border color
 	contentHeight := m.height - 4
-	sbStyle := sidebarStyle.
-		Width(m.sidebarWidth).
-		Height(contentHeight)
-	if m.focusSidebar {
-		sbStyle = sbStyle.BorderForeground(activeBorderColor)
-	} else {
-		sbStyle = sbStyle.BorderForeground(dimBorderColor)
-	}
-
 	var sidebar string
-	if gv := m.selectedGlobalView(); gv != nil {
-		// Split sidebar: list on top, toggle panel on bottom
-		togglePanel := m.renderTogglePanel(gv)
-		toggleHeight := strings.Count(togglePanel, "\n") + 1
-		// Shrink list to make room (m.list is a copy in View, safe to resize)
-		listHeight := contentHeight - 2 - toggleHeight - 1 // -2 for border padding, -1 for separator
-		if listHeight < 4 {
-			listHeight = 4
+	if !m.sidebarHidden {
+		sbStyle := sidebarStyle.
+			Width(m.sidebarWidth).
+			Height(contentHeight)
+		if m.focusSidebar {
+			sbStyle = sbStyle.BorderForeground(activeBorderColor)
+		} else {
+			sbStyle = sbStyle.BorderForeground(dimBorderColor)
 		}
-		m.list.SetSize(m.sidebarWidth-2, listHeight)
 
-		innerWidth := m.sidebarWidth - 2 // account for border+padding
-		separator := lipgloss.NewStyle().Foreground(dimBorderColor).
-			Width(innerWidth).Render(strings.Repeat("─", innerWidth))
+		if gv := m.selectedGlobalView(); gv != nil {
+			// Split sidebar: list on top, toggle panel on bottom
+			togglePanel := m.renderTogglePanel(gv)
+			toggleHeight := strings.Count(togglePanel, "\n") + 1
+			// Shrink list to make room (m.list is a copy in View, safe to resize)
+			listHeight := contentHeight - 2 - toggleHeight - 1 // -2 for border padding, -1 for separator
+			if listHeight < 4 {
+				listHeight = 4
+			}
+			m.list.SetSize(m.sidebarWidth-2, listHeight)
 
-		sidebarContent := lipgloss.JoinVertical(lipgloss.Left,
-			m.list.View(),
-			separator,
-			togglePanel,
-		)
-		sidebar = sbStyle.Render(sidebarContent)
-	} else {
-		sidebar = sbStyle.Render(m.list.View())
+			innerWidth := m.sidebarWidth - 2 // account for border+padding
+			separator := lipgloss.NewStyle().Foreground(dimBorderColor).
+				Width(innerWidth).Render(strings.Repeat("─", innerWidth))
+
+			sidebarContent := lipgloss.JoinVertical(lipgloss.Left,
+				m.list.View(),
+				separator,
+				togglePanel,
+			)
+			sidebar = sbStyle.Render(sidebarContent)
+		} else {
+			sidebar = sbStyle.Render(m.list.View())
+		}
 	}
 
 	// Viewport with focus-dependent border color
-	vpWidth := m.width - m.sidebarWidth - 4
+	// Width() sets content+padding area; total rendered = Width() + 2 (borders).
+	// With sidebar: sidebarWidth + 2 + vpWidth + 2 = m.width → vpWidth = m.width - sidebarWidth - 4
+	// Without sidebar: vpWidth + 2 = m.width → vpWidth = m.width - 2
+	var vpWidth int
+	if m.sidebarHidden {
+		vpWidth = m.width - 2
+	} else {
+		vpWidth = m.width - m.sidebarWidth - 4
+	}
 	vpStyle := viewportStyle.
 		Width(vpWidth).
 		Height(m.height - 4)
@@ -490,9 +527,9 @@ func (m model) View() string {
 	// Help bar — contextual based on selection
 	var helpText string
 	if m.selectedGlobalView() != nil {
-		helpText = "j/k: navigate • 1-9: toggle services • d: delete view • g: new view • tab: switch focus • q: quit"
+		helpText = "j/k: navigate • 1-9: toggle services • d: delete view • g: new view • h: hide sidebar • tab: switch focus • q: quit"
 	} else {
-		helpText = "j/k: navigate • s: start • x: stop • g: new global view • tab: switch focus • q: quit"
+		helpText = "j/k: navigate • s: start • x: stop • g: new global view • h: hide sidebar • tab: switch focus • q: quit"
 	}
 	help := helpStyle.Render(helpText)
 

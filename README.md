@@ -72,6 +72,7 @@ Global views can also be created at runtime with the `g` key.
 | `g` | Create a new global view (all services enabled) |
 | `d` | Delete selected global view |
 | `1`–`9` | Toggle service on/off in the selected global view |
+| `h` | Hide / show the sidebar |
 | `q` / `ctrl+c` | Stop all services and quit |
 
 When a global view is selected, the sidebar splits to show a toggle panel at the bottom indicating which services are enabled or disabled.

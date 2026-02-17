@@ -48,9 +48,10 @@ var (
 			Padding(0, 1)
 
 	// Status indicators
-	statusRunning = lipgloss.NewStyle().Foreground(colorGreen).SetString("●")
-	statusError   = lipgloss.NewStyle().Foreground(colorRed).SetString("●")
-	statusStopped = lipgloss.NewStyle().Foreground(colorGray).SetString("●")
+	statusRunning  = lipgloss.NewStyle().Foreground(colorGreen).SetString("●")
+	statusStopping = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFB86C")).SetString("●")
+	statusError    = lipgloss.NewStyle().Foreground(colorRed).SetString("●")
+	statusStopped  = lipgloss.NewStyle().Foreground(colorGray).SetString("●")
 
 	// Active sidebar highlight
 	activeBorderColor = lipgloss.Color("#7D56F4")
@@ -69,6 +70,8 @@ func statusDot(s Status) string {
 	switch s {
 	case Running:
 		return statusRunning.String()
+	case Stopping:
+		return statusStopping.String()
 	case Error:
 		return statusError.String()
 	default:

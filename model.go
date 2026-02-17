@@ -174,7 +174,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.QuitMsg:
 		// ctrl+c sends QuitMsg — stop all services before exiting
 		for _, svc := range m.services {
-			if svc.Status == Running {
+			if svc.Status == Running || svc.Status == Stopping {
 				svc.Stop()
 			}
 		}
@@ -186,7 +186,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Stop all services then quit
 			var stopCmds []tea.Cmd
 			for _, svc := range m.services {
-				if svc.Status == Running {
+				if svc.Status == Running || svc.Status == Stopping {
 					stopCmds = append(stopCmds, svc.Stop())
 				}
 			}
@@ -199,7 +199,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "s":
 			if m.focusSidebar {
-				if svc := m.selectedService(); svc != nil && svc.Status != Running {
+				if svc := m.selectedService(); svc != nil && svc.Status == Stopped || svc != nil && svc.Status == Error {
 					return m, svc.Start(m.logCh)
 				}
 			}

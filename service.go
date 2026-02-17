@@ -19,6 +19,7 @@ type Status int
 const (
 	Stopped Status = iota
 	Running
+	Stopping
 	Error
 )
 
@@ -26,6 +27,8 @@ func (s Status) String() string {
 	switch s {
 	case Running:
 		return "Running"
+	case Stopping:
+		return "Stopping"
 	case Error:
 		return "Error"
 	default:
@@ -64,7 +67,7 @@ func (s *Service) FilterValue() string {
 
 // Start launches the service process and streams logs to logCh.
 func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
-	if s.Status == Running {
+	if s.Status == Running || s.Status == Stopping {
 		return nil
 	}
 	return func() tea.Msg {
@@ -118,7 +121,7 @@ func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
 
 // Stop terminates the service and its process group.
 func (s *Service) Stop() tea.Cmd {
-	if s.Status != Running || s.PID == 0 {
+	if (s.Status != Running && s.Status != Stopping) || s.PID == 0 {
 		return nil
 	}
 
@@ -145,6 +148,6 @@ func (s *Service) Stop() tea.Cmd {
 			}
 		}()
 
-		return serviceStatusMsg{serviceName: name, status: Stopped}
+		return serviceStatusMsg{serviceName: name, status: Stopping}
 	}
 }

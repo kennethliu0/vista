@@ -39,7 +39,7 @@ type Service struct {
 	Cmd    string
 	Dir    string
 	Status Status
-	Logs   []string
+	Logs   []logEntry
 	PID    int
 
 	cmd    *exec.Cmd
@@ -95,7 +95,7 @@ func (s *Service) Start(logCh chan<- logMsg) tea.Cmd {
 			scanner := bufio.NewScanner(stdout)
 			scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 			for scanner.Scan() {
-				logCh <- logMsg{serviceName: s.Name, line: scanner.Text()}
+				logCh <- logMsg{serviceName: s.Name, line: scanner.Text(), time: time.Now()}
 			}
 			// Process exited — determine final status
 			err := s.cmd.Wait()
@@ -103,13 +103,13 @@ func (s *Service) Start(logCh chan<- logMsg) tea.Cmd {
 			if err != nil && ctx.Err() == nil {
 				// Process failed on its own (not cancelled)
 				finalStatus = Error
-				logCh <- logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] process exited with error: %v", err)}
+				logCh <- logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] process exited with error: %v", err), time: time.Now()}
 			} else {
-				logCh <- logMsg{serviceName: s.Name, line: "[vista] process stopped"}
+				logCh <- logMsg{serviceName: s.Name, line: "[vista] process stopped", time: time.Now()}
 			}
 			s.Status = finalStatus
 			s.PID = 0
-			logCh <- logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus)}
+			logCh <- logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus), time: time.Now()}
 		}()
 
 		return serviceStatusMsg{serviceName: s.Name, status: Running, pid: s.PID}

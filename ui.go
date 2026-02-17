@@ -10,6 +10,19 @@ var (
 	colorWhite = lipgloss.Color("#FFFFFF")
 	colorDim   = lipgloss.Color("#555555")
 
+	// Service name prefix colors (cycled per service)
+	serviceColors = []lipgloss.Color{
+		lipgloss.Color("#FF79C6"), // pink
+		lipgloss.Color("#8BE9FD"), // cyan
+		lipgloss.Color("#50FA7B"), // green
+		lipgloss.Color("#FFB86C"), // orange
+		lipgloss.Color("#BD93F9"), // purple
+		lipgloss.Color("#F1FA8C"), // yellow
+		lipgloss.Color("#FF5555"), // red
+		lipgloss.Color("#6272A4"), // muted blue
+		lipgloss.Color("#F8F8F2"), // white
+	}
+
 	// Title bar
 	titleStyle = lipgloss.NewStyle().
 			Bold(true).
@@ -42,6 +55,14 @@ var (
 	// Active sidebar highlight
 	activeBorderColor = lipgloss.Color("#7D56F4")
 	dimBorderColor    = lipgloss.Color("#555555")
+
+	// Toggle panel (bottom of sidebar for global views)
+	toggleHeaderStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#7D56F4")).
+				Bold(true)
+
+	toggleOnStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#50FA7B"))
+	toggleOffStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
 )
 
 func statusDot(s Status) string {
@@ -53,4 +74,15 @@ func statusDot(s Status) string {
 	default:
 		return statusStopped.String()
 	}
+}
+
+// serviceNamePrefix returns a styled "[name]" tag for use in global view logs.
+func serviceNamePrefix(name string) string {
+	// Simple hash to pick a consistent color per service name
+	h := 0
+	for _, c := range name {
+		h += int(c)
+	}
+	color := serviceColors[h%len(serviceColors)]
+	return lipgloss.NewStyle().Foreground(color).Bold(true).Render("[" + name + "]")
 }

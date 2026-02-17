@@ -14,6 +14,7 @@ const defaultSidebarWidth = 28
 
 type model struct {
 	services     []*Service
+	globalViews  []*globalView
 	list         list.Model
 	viewport     viewport.Model
 	logCh        chan logMsg
@@ -23,6 +24,7 @@ type model struct {
 	ready        bool
 	focusSidebar bool
 	sidebarWidth int
+	nextViewNum  int // counter for auto-naming global views
 }
 
 func newModel(services []*Service, logCh chan logMsg) model {
@@ -53,7 +55,26 @@ func newModel(services []*Service, logCh chan logMsg) model {
 		activeIdx:    0,
 		focusSidebar: true,
 		sidebarWidth: defaultSidebarWidth,
+		nextViewNum:  1,
 	}
+}
+
+// selectedGlobalView returns the currently selected global view, or nil if a service is selected.
+func (m *model) selectedGlobalView() *globalView {
+	sel := m.list.SelectedItem()
+	if gv, ok := sel.(*globalView); ok {
+		return gv
+	}
+	return nil
+}
+
+// selectedService returns the currently selected service, or nil if a global view is selected.
+func (m *model) selectedService() *Service {
+	sel := m.list.SelectedItem()
+	if svc, ok := sel.(*Service); ok {
+		return svc
+	}
+	return nil
 }
 
 func (m model) Init() tea.Cmd {
@@ -88,21 +109,30 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case logMsg:
-		// Append log line to the matching service
+		// Append log entry to the matching service
 		for _, svc := range m.services {
 			if svc.Name == msg.serviceName {
-				svc.Logs = append(svc.Logs, msg.line)
+				entry := logEntry{time: msg.time, serviceName: msg.serviceName, line: msg.line}
+				svc.Logs = append(svc.Logs, entry)
 				if len(svc.Logs) > MaxLogLines {
 					svc.Logs = svc.Logs[len(svc.Logs)-MaxLogLines:]
 				}
 				break
 			}
 		}
-		// If this log is for the active service, refresh viewport
-		if m.activeIdx < len(m.services) && m.services[m.activeIdx].Name == msg.serviceName {
+
+		// Refresh viewport if this log is relevant to the current view
+		needsRefresh := false
+		if svc := m.selectedService(); svc != nil && svc.Name == msg.serviceName {
+			needsRefresh = true
+		} else if gv := m.selectedGlobalView(); gv != nil && gv.services[msg.serviceName] {
+			needsRefresh = true
+		}
+		if needsRefresh {
 			m.refreshViewport()
 			m.viewport.GotoBottom()
 		}
+
 		// Re-subscribe to the log channel
 		cmds = append(cmds, waitForLog(m.logCh))
 		return m, tea.Batch(cmds...)
@@ -147,23 +177,74 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "s":
-			if m.focusSidebar && m.activeIdx < len(m.services) {
-				svc := m.services[m.activeIdx]
-				if svc.Status != Running {
+			if m.focusSidebar {
+				if svc := m.selectedService(); svc != nil && svc.Status != Running {
 					return m, svc.Start(m.logCh)
 				}
 			}
 			return m, nil
 
 		case "x":
-			if m.focusSidebar && m.activeIdx < len(m.services) {
-				svc := m.services[m.activeIdx]
-				if svc.Status == Running {
+			if m.focusSidebar {
+				if svc := m.selectedService(); svc != nil && svc.Status == Running {
 					return m, svc.Stop()
 				}
 			}
 			return m, nil
 
+		case "g":
+			if m.focusSidebar {
+				gv := &globalView{
+					name:     fmt.Sprintf("Global %d", m.nextViewNum),
+					services: make(map[string]bool),
+				}
+				for _, svc := range m.services {
+					gv.services[svc.Name] = true
+				}
+				m.nextViewNum++
+				m.globalViews = append(m.globalViews, gv)
+				m.refreshListItems()
+				// Select the newly created global view (index 0-based, it's prepended)
+				m.list.Select(len(m.globalViews) - 1)
+				m.syncSelection()
+				m.refreshViewport()
+				m.viewport.GotoBottom()
+				return m, nil
+			}
+			return m, nil
+
+		case "d":
+			if m.focusSidebar {
+				if gv := m.selectedGlobalView(); gv != nil {
+					// Remove this global view
+					for i, v := range m.globalViews {
+						if v == gv {
+							m.globalViews = append(m.globalViews[:i], m.globalViews[i+1:]...)
+							break
+						}
+					}
+					m.refreshListItems()
+					m.syncSelection()
+					m.refreshViewport()
+					return m, nil
+				}
+			}
+			return m, nil
+
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			if m.focusSidebar {
+				if gv := m.selectedGlobalView(); gv != nil {
+					idx := int(msg.String()[0] - '1') // 0-based
+					if idx < len(m.services) {
+						name := m.services[idx].Name
+						gv.services[name] = !gv.services[name]
+						m.refreshListItems()
+						m.refreshViewport()
+						return m, nil
+					}
+				}
+			}
+			return m, nil
 		}
 
 		// Delegate keys to focused component
@@ -171,20 +252,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			m.list, cmd = m.list.Update(msg)
 			cmds = append(cmds, cmd)
-
-			// Sync activeIdx with list cursor so selection is immediate
-			if i, ok := m.list.SelectedItem().(*Service); ok {
-				for idx, svc := range m.services {
-					if svc.Name == i.Name {
-						if idx != m.activeIdx {
-							m.activeIdx = idx
-							m.refreshViewport()
-							m.viewport.GotoBottom()
-						}
-						break
-					}
-				}
-			}
+			m.syncSelection()
 		} else {
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
@@ -196,23 +264,121 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *model) refreshViewport() {
-	if m.activeIdx < len(m.services) {
-		svc := m.services[m.activeIdx]
-		content := strings.Join(svc.Logs, "\n")
-		if content == "" {
-			content = fmt.Sprintf("No logs yet for %s...", svc.Name)
-		}
-		m.viewport.SetContent(content)
+// syncSelection updates the viewport when the list cursor changes.
+func (m *model) syncSelection() {
+	sel := m.list.SelectedItem()
+	if sel == nil {
+		return
+	}
+	// Check if selection actually changed by comparing to what refreshViewport would show
+	switch sel.(type) {
+	case *Service, *globalView:
+		m.refreshViewport()
+		m.viewport.GotoBottom()
 	}
 }
 
+func (m *model) refreshViewport() {
+	sel := m.list.SelectedItem()
+	if sel == nil {
+		m.viewport.SetContent("No items to display...")
+		return
+	}
+
+	switch item := sel.(type) {
+	case *Service:
+		if len(item.Logs) == 0 {
+			m.viewport.SetContent(fmt.Sprintf("No logs yet for %s...", item.Name))
+			return
+		}
+		lines := make([]string, len(item.Logs))
+		for i, e := range item.Logs {
+			lines[i] = e.line
+		}
+		m.viewport.SetContent(strings.Join(lines, "\n"))
+
+	case *globalView:
+		merged := m.mergeGlobalViewLogs(item)
+		if len(merged) == 0 {
+			m.viewport.SetContent(fmt.Sprintf("No logs yet for %s...", item.name))
+			return
+		}
+		lines := make([]string, len(merged))
+		for i, e := range merged {
+			lines[i] = fmt.Sprintf("%s %s", serviceNamePrefix(e.serviceName), e.line)
+		}
+		m.viewport.SetContent(strings.Join(lines, "\n"))
+	}
+}
+
+// mergeGlobalViewLogs performs a k-way merge of log entries from enabled services.
+func (m *model) mergeGlobalViewLogs(gv *globalView) []logEntry {
+	// Collect slices from enabled services
+	type source struct {
+		logs []logEntry
+		pos  int
+	}
+	var sources []source
+	for _, svc := range m.services {
+		if gv.services[svc.Name] && len(svc.Logs) > 0 {
+			sources = append(sources, source{logs: svc.Logs})
+		}
+	}
+	if len(sources) == 0 {
+		return nil
+	}
+
+	// K-way merge — each service's logs are already sorted by time
+	var merged []logEntry
+	for {
+		// Find the source with the earliest next entry
+		minIdx := -1
+		for i := range sources {
+			if sources[i].pos >= len(sources[i].logs) {
+				continue
+			}
+			if minIdx == -1 || sources[i].logs[sources[i].pos].time.Before(sources[minIdx].logs[sources[minIdx].pos].time) {
+				minIdx = i
+			}
+		}
+		if minIdx == -1 {
+			break
+		}
+		merged = append(merged, sources[minIdx].logs[sources[minIdx].pos])
+		sources[minIdx].pos++
+
+		if len(merged) >= MaxLogLines {
+			break
+		}
+	}
+	return merged
+}
+
 func (m *model) refreshListItems() {
-	items := make([]list.Item, len(m.services))
-	for i, s := range m.services {
-		items[i] = s
+	items := make([]list.Item, 0, len(m.globalViews)+len(m.services))
+	for _, gv := range m.globalViews {
+		items = append(items, gv)
+	}
+	for _, s := range m.services {
+		items = append(items, s)
 	}
 	m.list.SetItems(items)
+}
+
+// renderTogglePanel renders the service toggle state for a global view.
+func (m *model) renderTogglePanel(gv *globalView) string {
+	var b strings.Builder
+	b.WriteString(toggleHeaderStyle.Render(fmt.Sprintf("%s services", gv.Title())))
+	for i, svc := range m.services {
+		b.WriteByte('\n')
+		key := fmt.Sprintf("%d", i+1)
+		if gv.services[svc.Name] {
+			b.WriteString(toggleOnStyle.Render(fmt.Sprintf(" %s ✓ %s", key, svc.Name)))
+		} else {
+			b.WriteString(toggleOffStyle.Render(fmt.Sprintf(" %s ✗ %s", key, svc.Name)))
+		}
+	}
+	return b.String()
 }
 
 func (m model) View() string {
@@ -224,15 +390,41 @@ func (m model) View() string {
 	title := titleStyle.Width(m.width).Render(" Vista — Log Aggregator")
 
 	// Sidebar with focus-dependent border color
+	contentHeight := m.height - 4
 	sbStyle := sidebarStyle.
 		Width(m.sidebarWidth).
-		Height(m.height - 4)
+		Height(contentHeight)
 	if m.focusSidebar {
 		sbStyle = sbStyle.BorderForeground(activeBorderColor)
 	} else {
 		sbStyle = sbStyle.BorderForeground(dimBorderColor)
 	}
-	sidebar := sbStyle.Render(m.list.View())
+
+	var sidebar string
+	if gv := m.selectedGlobalView(); gv != nil {
+		// Split sidebar: list on top, toggle panel on bottom
+		togglePanel := m.renderTogglePanel(gv)
+		toggleHeight := strings.Count(togglePanel, "\n") + 1
+		// Shrink list to make room (m.list is a copy in View, safe to resize)
+		listHeight := contentHeight - 2 - toggleHeight - 1 // -2 for border padding, -1 for separator
+		if listHeight < 4 {
+			listHeight = 4
+		}
+		m.list.SetSize(m.sidebarWidth-2, listHeight)
+
+		innerWidth := m.sidebarWidth - 2 // account for border+padding
+		separator := lipgloss.NewStyle().Foreground(dimBorderColor).
+			Width(innerWidth).Render(strings.Repeat("─", innerWidth))
+
+		sidebarContent := lipgloss.JoinVertical(lipgloss.Left,
+			m.list.View(),
+			separator,
+			togglePanel,
+		)
+		sidebar = sbStyle.Render(sidebarContent)
+	} else {
+		sidebar = sbStyle.Render(m.list.View())
+	}
 
 	// Viewport with focus-dependent border color
 	vpWidth := m.width - m.sidebarWidth - 4
@@ -247,8 +439,12 @@ func (m model) View() string {
 
 	// Viewport header
 	vpHeader := ""
-	if m.activeIdx < len(m.services) {
-		vpHeader = fmt.Sprintf("─ %s ", m.services[m.activeIdx].Name)
+	sel := m.list.SelectedItem()
+	switch item := sel.(type) {
+	case *Service:
+		vpHeader = fmt.Sprintf("─ %s ", item.Name)
+	case *globalView:
+		vpHeader = fmt.Sprintf("─ %s ", item.name)
 	}
 	_ = vpHeader
 	logPane := vpStyle.Render(m.viewport.View())
@@ -256,8 +452,14 @@ func (m model) View() string {
 	// Main content
 	content := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, logPane)
 
-	// Help bar
-	help := helpStyle.Render("j/k: navigate • s: start • x: stop • tab: switch focus • q: quit")
+	// Help bar — contextual based on selection
+	var helpText string
+	if m.selectedGlobalView() != nil {
+		helpText = "j/k: navigate • 1-9: toggle services • d: delete view • g: new view • tab: switch focus • q: quit"
+	} else {
+		helpText = "j/k: navigate • s: start • x: stop • g: new global view • tab: switch focus • q: quit"
+	}
+	help := helpStyle.Render(helpText)
 
 	return lipgloss.JoinVertical(lipgloss.Left, title, content, help)
 }

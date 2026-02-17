@@ -27,10 +27,13 @@ type model struct {
 	nextViewNum  int // counter for auto-naming global views
 }
 
-func newModel(services []*Service, logCh chan logMsg) model {
-	items := make([]list.Item, len(services))
-	for i, s := range services {
-		items[i] = s
+func newModel(services []*Service, views []*globalView, logCh chan logMsg) model {
+	items := make([]list.Item, 0, len(views)+len(services))
+	for _, gv := range views {
+		items = append(items, gv)
+	}
+	for _, s := range services {
+		items = append(items, s)
 	}
 
 	delegate := list.NewDefaultDelegate()
@@ -47,15 +50,19 @@ func newModel(services []*Service, logCh chan logMsg) model {
 	vp := viewport.New(60, 20)
 	vp.SetContent("Select a service to view logs...")
 
+	// nextViewNum starts after any config-defined views
+	nextNum := len(views) + 1
+
 	return model{
 		services:     services,
+		globalViews:  views,
 		list:         l,
 		viewport:     vp,
 		logCh:        logCh,
 		activeIdx:    0,
 		focusSidebar: true,
 		sidebarWidth: defaultSidebarWidth,
-		nextViewNum:  1,
+		nextViewNum:  nextNum,
 	}
 }
 

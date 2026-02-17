@@ -199,19 +199,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(stopCmds...)
 
 		case "h":
-			if !m.sidebarHidden {
-				n := len(m.globalViews) + len(m.services)
-				m.list.Select((m.list.Index() - 1 + n) % n)
-				m.syncSelection()
-			}
+			n := len(m.globalViews) + len(m.services)
+			m.list.Select((m.list.Index() - 1 + n) % n)
+			m.syncSelection()
 			return m, nil
 
 		case "l":
-			if !m.sidebarHidden {
-				n := len(m.globalViews) + len(m.services)
-				m.list.Select((m.list.Index() + 1) % n)
-				m.syncSelection()
-			}
+			n := len(m.globalViews) + len(m.services)
+			m.list.Select((m.list.Index() + 1) % n)
+			m.syncSelection()
 			return m, nil
 
 		case "b":
@@ -302,6 +298,21 @@ func (m *model) viewportContentWidth() int {
 		w = 1
 	}
 	return w
+}
+
+// itemName returns the display name of the list item at the given index.
+func (m *model) itemName(idx int) string {
+	items := m.list.Items()
+	if idx < 0 || idx >= len(items) {
+		return ""
+	}
+	switch item := items[idx].(type) {
+	case *Service:
+		return item.Name
+	case *globalView:
+		return item.name
+	}
+	return ""
 }
 
 // syncSelection updates the viewport when the list cursor changes.
@@ -436,13 +447,12 @@ func (m model) View() string {
 	// Title bar
 	titleText := " Vista — Log Aggregator"
 	if m.sidebarHidden {
-		sel := m.list.SelectedItem()
-		switch item := sel.(type) {
-		case *Service:
-			titleText += " — " + item.Name
-		case *globalView:
-			titleText += " — " + item.name
-		}
+		n := len(m.globalViews) + len(m.services)
+		idx := m.list.Index()
+		cur := m.itemName(idx)
+		prev := m.itemName((idx - 1 + n) % n)
+		next := m.itemName((idx + 1) % n)
+		titleText = fmt.Sprintf(" ‹ %s   %s   %s ›", prev, cur, next)
 	}
 	title := titleStyle.Width(m.width).Render(titleText)
 

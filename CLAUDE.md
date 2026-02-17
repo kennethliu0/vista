@@ -19,7 +19,7 @@ Vista is a Bubble Tea TUI that manages multiple service processes and aggregates
 
 **Process management** (`service.go`): Each service runs via `sh -c <cmd>` with `syscall.SysProcAttr{Setpgid: true}` so the entire process group can be killed. Stop sends SIGTERM to `-PID`, then SIGKILL after 2s as fallback.
 
-**Focus model** (`model.go`): `focusSidebar` bool determines which component (list vs viewport) receives key events. Tab toggles focus. Selecting a service in the sidebar is immediate on cursor move (no enter needed).
+**Navigation model** (`model.go`): No focus state. `h`/`l` navigate the sidebar list (with wrap-around), `j`/`k` always scroll the viewport. All action keys (`s`, `x`, `g`, `d`, `1-9`) work unconditionally. `b` toggles sidebar visibility.
 
 **Config** (`main.go`): Services are loaded from `~/.config/vista/vista.json` at startup. No hot-reload.
 

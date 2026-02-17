@@ -23,7 +23,6 @@ type model struct {
 	width        int
 	height       int
 	ready        bool
-	focusSidebar  bool
 	sidebarHidden bool
 	sidebarWidth  int
 	nextViewNum   int  // counter for auto-naming global views
@@ -64,7 +63,6 @@ func newModel(services []*Service, views []*globalView, logCh chan tea.Msg) mode
 		viewport:     vp,
 		logCh:        logCh,
 		activeIdx:    0,
-		focusSidebar: true,
 		sidebarWidth: defaultSidebarWidth,
 		nextViewNum:  nextNum,
 	}
@@ -200,101 +198,91 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			stopCmds = append(stopCmds, tea.Quit)
 			return m, tea.Batch(stopCmds...)
 
-		case "tab":
-			m.focusSidebar = !m.focusSidebar
+		case "h":
+			if !m.sidebarHidden {
+				n := len(m.globalViews) + len(m.services)
+				m.list.Select((m.list.Index() - 1 + n) % n)
+				m.syncSelection()
+			}
 			return m, nil
 
-		case "h":
-			m.sidebarHidden = !m.sidebarHidden
-			if m.sidebarHidden {
-				m.focusSidebar = false
+		case "l":
+			if !m.sidebarHidden {
+				n := len(m.globalViews) + len(m.services)
+				m.list.Select((m.list.Index() + 1) % n)
+				m.syncSelection()
 			}
+			return m, nil
+
+		case "b":
+			m.sidebarHidden = !m.sidebarHidden
 			m.viewport.Width = m.viewportContentWidth()
 			m.refreshViewport()
 			return m, nil
 
 		case "s":
-			if m.focusSidebar {
-				if svc := m.selectedService(); svc != nil && svc.Status == Stopped || svc != nil && svc.Status == Error {
-					return m, svc.Start(m.logCh)
-				}
+			if svc := m.selectedService(); svc != nil && svc.Status == Stopped || svc != nil && svc.Status == Error {
+				return m, svc.Start(m.logCh)
 			}
 			return m, nil
 
 		case "x":
-			if m.focusSidebar {
-				if svc := m.selectedService(); svc != nil && svc.Status == Running {
-					return m, svc.Stop()
-				}
+			if svc := m.selectedService(); svc != nil && svc.Status == Running {
+				return m, svc.Stop()
 			}
 			return m, nil
 
 		case "g":
-			if m.focusSidebar {
-				gv := &globalView{
-					name:     fmt.Sprintf("Global %d", m.nextViewNum),
-					services: make(map[string]bool),
+			gv := &globalView{
+				name:     fmt.Sprintf("Global %d", m.nextViewNum),
+				services: make(map[string]bool),
+			}
+			for _, svc := range m.services {
+				gv.services[svc.Name] = true
+			}
+			m.nextViewNum++
+			m.globalViews = append(m.globalViews, gv)
+			m.refreshListItems()
+			// Select the newly created global view (appended to the end of the list)
+			m.list.Select(len(m.globalViews) - 1)
+			m.syncSelection()
+			m.refreshViewport()
+			m.viewport.GotoBottom()
+			return m, nil
+
+		case "d":
+			if gv := m.selectedGlobalView(); gv != nil {
+				for i, v := range m.globalViews {
+					if v == gv {
+						m.globalViews = append(m.globalViews[:i], m.globalViews[i+1:]...)
+						break
+					}
 				}
-				for _, svc := range m.services {
-					gv.services[svc.Name] = true
-				}
-				m.nextViewNum++
-				m.globalViews = append(m.globalViews, gv)
 				m.refreshListItems()
-				// Select the newly created global view (appended to the end of the list)
-				m.list.Select(len(m.globalViews) - 1)
 				m.syncSelection()
 				m.refreshViewport()
-				m.viewport.GotoBottom()
 				return m, nil
 			}
 			return m, nil
 
-		case "d":
-			if m.focusSidebar {
-				if gv := m.selectedGlobalView(); gv != nil {
-					// Remove this global view
-					for i, v := range m.globalViews {
-						if v == gv {
-							m.globalViews = append(m.globalViews[:i], m.globalViews[i+1:]...)
-							break
-						}
-					}
+		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
+			if gv := m.selectedGlobalView(); gv != nil {
+				idx := int(msg.String()[0] - '1') // 0-based
+				if idx < len(m.services) {
+					name := m.services[idx].Name
+					gv.services[name] = !gv.services[name]
 					m.refreshListItems()
-					m.syncSelection()
 					m.refreshViewport()
 					return m, nil
 				}
 			}
 			return m, nil
-
-		case "1", "2", "3", "4", "5", "6", "7", "8", "9":
-			if m.focusSidebar {
-				if gv := m.selectedGlobalView(); gv != nil {
-					idx := int(msg.String()[0] - '1') // 0-based
-					if idx < len(m.services) {
-						name := m.services[idx].Name
-						gv.services[name] = !gv.services[name]
-						m.refreshListItems()
-						m.refreshViewport()
-						return m, nil
-					}
-				}
-			}
-			return m, nil
 		}
 
-		// Delegate keys to focused component
-		if m.focusSidebar {
-			var cmd tea.Cmd
-			m.list, cmd = m.list.Update(msg)
-			cmds = append(cmds, cmd)
-			m.syncSelection()
-		} else {
-			var cmd tea.Cmd
-			m.viewport, cmd = m.viewport.Update(msg)
-			cmds = append(cmds, cmd)
-		}
+		// Delegate remaining keys to the viewport (j/k scroll, pgup/pgdown, etc.)
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		cmds = append(cmds, cmd)
 		return m, tea.Batch(cmds...)
 	}
 
@@ -451,18 +439,13 @@ func (m model) View() string {
 	}
 	title := titleStyle.Width(m.width).Render(titleText)
 
-	// Sidebar with focus-dependent border color
 	contentHeight := m.height - 4
 	var sidebar string
 	if !m.sidebarHidden {
 		sbStyle := sidebarStyle.
 			Width(m.sidebarWidth).
-			Height(contentHeight)
-		if m.focusSidebar {
-			sbStyle = sbStyle.BorderForeground(activeBorderColor)
-		} else {
-			sbStyle = sbStyle.BorderForeground(dimBorderColor)
-		}
+			Height(contentHeight).
+			BorderForeground(dimBorderColor)
 
 		if gv := m.selectedGlobalView(); gv != nil {
 			// Split sidebar: list on top, toggle panel on bottom
@@ -502,12 +485,8 @@ func (m model) View() string {
 	}
 	vpStyle := viewportStyle.
 		Width(vpWidth).
-		Height(m.height - 4)
-	if !m.focusSidebar {
-		vpStyle = vpStyle.BorderForeground(activeBorderColor)
-	} else {
-		vpStyle = vpStyle.BorderForeground(dimBorderColor)
-	}
+		Height(m.height - 4).
+		BorderForeground(dimBorderColor)
 
 	// Viewport header
 	vpHeader := ""
@@ -527,9 +506,9 @@ func (m model) View() string {
 	// Help bar — contextual based on selection
 	var helpText string
 	if m.selectedGlobalView() != nil {
-		helpText = "j/k: navigate • 1-9: toggle services • d: delete view • g: new view • h: hide sidebar • tab: switch focus • q: quit"
+		helpText = "h/l: switch view • j/k: scroll • 1-9: toggle services • d: delete view • g: new view • b: hide sidebar • q: quit"
 	} else {
-		helpText = "j/k: navigate • s: start • x: stop • g: new global view • h: hide sidebar • tab: switch focus • q: quit"
+		helpText = "h/l: switch view • j/k: scroll • s: start • x: stop • g: new global view • b: hide sidebar • q: quit"
 	}
 	help := helpStyle.Render(helpText)
 

@@ -65,17 +65,17 @@ Global views can also be created at runtime with the `g` key.
 
 | Key | Action |
 |-----|--------|
-| `j` / `k` | Navigate services (sidebar) or scroll logs (viewport) |
-| `tab` | Toggle focus between sidebar and viewport |
+| `h` / `l` | Switch to previous / next service or global view |
+| `j` / `k` | Scroll logs up / down |
 | `s` | Start selected service |
 | `x` | Stop selected service |
 | `g` | Create a new global view (all services enabled) |
 | `d` | Delete selected global view |
 | `1`–`9` | Toggle service on/off in the selected global view |
-| `h` | Hide / show the sidebar |
+| `b` | Hide / show the sidebar |
 | `q` / `ctrl+c` | Stop all services and quit |
 
-When a global view is selected, the sidebar splits to show a toggle panel at the bottom indicating which services are enabled or disabled.
+When a global view is selected, the sidebar splits to show a toggle panel at the bottom indicating which services are enabled or disabled. Use `1`–`9` to toggle individual services in the view.
 
 ## Project Structure
 

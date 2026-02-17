@@ -231,7 +231,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.nextViewNum++
 				m.globalViews = append(m.globalViews, gv)
 				m.refreshListItems()
-				// Select the newly created global view (index 0-based, it's prepended)
+				// Select the newly created global view (appended to the end of the list)
 				m.list.Select(len(m.globalViews) - 1)
 				m.syncSelection()
 				m.refreshViewport()

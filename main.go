@@ -43,8 +43,16 @@ func loadVistaJSON(path string) ([]*Service, []*globalView, error) {
 	services := make([]*Service, len(cfg.Services))
 	serviceNames := make(map[string]bool)
 	for i, sc := range cfg.Services {
-		services[i] = &Service{Name: sc.Name, Cmd: sc.Cmd, Dir: sc.Dir}
+		if serviceNames[sc.Name] {
+			return nil, nil, fmt.Errorf("duplicate service name %q in %s", sc.Name, path)
+		}
 		serviceNames[sc.Name] = true
+		if sc.Dir != "" {
+			if _, err := os.Stat(sc.Dir); os.IsNotExist(err) {
+				return nil, nil, fmt.Errorf("service %q: directory %q does not exist", sc.Name, sc.Dir)
+			}
+		}
+		services[i] = &Service{Name: sc.Name, Cmd: sc.Cmd, Dir: sc.Dir}
 	}
 
 	var views []*globalView
@@ -77,8 +85,12 @@ func loadVistaJSON(path string) ([]*Service, []*globalView, error) {
 
 func loadConfig() ([]*Service, []*globalView, error) {
 	// 1. Local ./vista.json
-	if svcs, views, err := loadVistaJSON("vista.json"); err == nil {
+	svcs, views, err := loadVistaJSON("vista.json")
+	if err == nil {
 		return svcs, views, nil
+	}
+	if !os.IsNotExist(err) {
+		return nil, nil, err
 	}
 
 	// 2. Global ~/.config/vista/vista.json
@@ -87,8 +99,12 @@ func loadConfig() ([]*Service, []*globalView, error) {
 		return nil, nil, fmt.Errorf("cannot determine home directory: %w", err)
 	}
 	globalPath := filepath.Join(home, ".config", "vista", "vista.json")
-	if svcs, views, err := loadVistaJSON(globalPath); err == nil {
+	svcs, views, err = loadVistaJSON(globalPath)
+	if err == nil {
 		return svcs, views, nil
+	}
+	if !os.IsNotExist(err) {
+		return nil, nil, err
 	}
 
 	return nil, nil, fmt.Errorf("no config found (checked ./vista.json and %s)", globalPath)

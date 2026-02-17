@@ -101,7 +101,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logCh := make(chan logMsg, 256)
+	logCh := make(chan tea.Msg, 256)
 	m := newModel(services, views, logCh)
 
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())

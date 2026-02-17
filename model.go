@@ -18,7 +18,7 @@ type model struct {
 	globalViews  []*globalView
 	list         list.Model
 	viewport     viewport.Model
-	logCh        chan logMsg
+	logCh        chan tea.Msg
 	activeIdx    int
 	width        int
 	height       int
@@ -30,7 +30,7 @@ type model struct {
 	renderPending bool // a renderTickMsg is already scheduled
 }
 
-func newModel(services []*Service, views []*globalView, logCh chan logMsg) model {
+func newModel(services []*Service, views []*globalView, logCh chan tea.Msg) model {
 	items := make([]list.Item, 0, len(views)+len(services))
 	for _, gv := range views {
 		items = append(items, gv)

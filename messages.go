@@ -59,7 +59,7 @@ func (g *globalView) FilterValue() string {
 
 // waitForLog blocks on the log channel and returns one logMsg.
 // Re-subscribe after each receive to keep the listener alive.
-func waitForLog(ch <-chan logMsg) tea.Cmd {
+func waitForLog(ch <-chan tea.Msg) tea.Cmd {
 	return func() tea.Msg {
 		return <-ch
 	}

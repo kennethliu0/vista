@@ -62,7 +62,7 @@ func (s *Service) FilterValue() string {
 }
 
 // Start launches the service process and streams logs to logCh.
-func (s *Service) Start(logCh chan<- logMsg) tea.Cmd {
+func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
 	if s.Status == Running {
 		return nil
 	}
@@ -77,18 +77,15 @@ func (s *Service) Start(logCh chan<- logMsg) tea.Cmd {
 
 		stdout, err := s.cmd.StdoutPipe()
 		if err != nil {
-			s.Status = Error
 			return serviceStatusMsg{serviceName: s.Name, status: Error, err: err}
 		}
 		s.cmd.Stderr = s.cmd.Stdout // merge stderr into stdout
 
 		if err := s.cmd.Start(); err != nil {
-			s.Status = Error
 			return serviceStatusMsg{serviceName: s.Name, status: Error, err: err}
 		}
 
-		s.PID = s.cmd.Process.Pid
-		s.Status = Running
+		pid := s.cmd.Process.Pid
 
 		// Stream output in a goroutine
 		go func() {
@@ -107,12 +104,12 @@ func (s *Service) Start(logCh chan<- logMsg) tea.Cmd {
 			} else {
 				logCh <- logMsg{serviceName: s.Name, line: "[vista] process stopped", time: time.Now()}
 			}
-			s.Status = finalStatus
-			s.PID = 0
 			logCh <- logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus), time: time.Now()}
+			// Update status via message — no direct field writes from goroutine
+			logCh <- serviceStatusMsg{serviceName: s.Name, status: finalStatus}
 		}()
 
-		return serviceStatusMsg{serviceName: s.Name, status: Running, pid: s.PID}
+		return serviceStatusMsg{serviceName: s.Name, status: Running, pid: pid}
 	}
 }
 

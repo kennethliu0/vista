@@ -97,25 +97,42 @@ func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
 			scanner := bufio.NewScanner(stdout)
 			scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 			for scanner.Scan() {
-				logCh <- logMsg{serviceName: s.Name, line: scanner.Text(), time: time.Now()}
+				msg := logMsg{serviceName: s.Name, line: scanner.Text(), time: time.Now()}
+				select {
+				case logCh <- msg:
+				case <-ctx.Done():
+					return
+				default:
+					// Channel full — drop line to avoid blocking
+				}
 			}
-			// Process exited — determine final status
+			// Process exited — determine final status.
+			// These sends use a timeout: they are few and important,
+			// but must not block forever if the consumer is gone.
 			err := s.cmd.Wait()
 			finalStatus := Stopped
 			if err != nil && ctx.Err() == nil {
-				// Process failed on its own (not cancelled)
 				finalStatus = Error
-				logCh <- logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] process exited with error: %v", err), time: time.Now()}
+				trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] process exited with error: %v", err), time: time.Now()})
 			} else {
-				logCh <- logMsg{serviceName: s.Name, line: "[vista] process stopped", time: time.Now()}
+				trySendTimeout(logCh, logMsg{serviceName: s.Name, line: "[vista] process stopped", time: time.Now()})
 			}
-			logCh <- logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus), time: time.Now()}
-			// Update status via message — no direct field writes from goroutine
-			logCh <- serviceStatusMsg{serviceName: s.Name, status: finalStatus}
+			trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus), time: time.Now()})
+			// Status update is critical — use a longer timeout
+			trySendTimeout(logCh, serviceStatusMsg{serviceName: s.Name, status: finalStatus})
 			close(s.done)
 		}()
 
 		return serviceStatusMsg{serviceName: s.Name, status: Running, pid: pid}
+	}
+}
+
+// trySendTimeout attempts to send a message on the channel with a 5-second timeout.
+// Used for post-exit lifecycle messages that are important but must not block forever.
+func trySendTimeout(ch chan<- tea.Msg, msg tea.Msg) {
+	select {
+	case ch <- msg:
+	case <-time.After(5 * time.Second):
 	}
 }
 

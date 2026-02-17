@@ -44,6 +44,7 @@ type Service struct {
 
 	cmd    *exec.Cmd
 	cancel context.CancelFunc
+	done   chan struct{} // closed when the scanner goroutine exits
 }
 
 // Title implements list.DefaultItem.
@@ -70,6 +71,7 @@ func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		s.cancel = cancel
+		s.done = make(chan struct{})
 
 		s.cmd = exec.CommandContext(ctx, "sh", "-c", s.Cmd)
 		s.cmd.Dir = s.Dir
@@ -107,6 +109,7 @@ func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
 			logCh <- logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus), time: time.Now()}
 			// Update status via message — no direct field writes from goroutine
 			logCh <- serviceStatusMsg{serviceName: s.Name, status: finalStatus}
+			close(s.done)
 		}()
 
 		return serviceStatusMsg{serviceName: s.Name, status: Running, pid: pid}
@@ -121,6 +124,7 @@ func (s *Service) Stop() tea.Cmd {
 
 	pid := s.PID
 	name := s.Name
+	done := s.done
 
 	// Cancel context
 	if s.cancel != nil {
@@ -131,10 +135,14 @@ func (s *Service) Stop() tea.Cmd {
 		// Kill the process group with SIGTERM
 		_ = syscall.Kill(-pid, syscall.SIGTERM)
 
-		// Wait briefly, then SIGKILL as fallback
+		// Wait briefly, then SIGKILL as fallback — exits early if process dies
 		go func() {
-			time.Sleep(2 * time.Second)
-			_ = syscall.Kill(-pid, syscall.SIGKILL)
+			select {
+			case <-done:
+				// Process already exited, no need for SIGKILL
+			case <-time.After(2 * time.Second):
+				_ = syscall.Kill(-pid, syscall.SIGKILL)
+			}
 		}()
 
 		return serviceStatusMsg{serviceName: name, status: Stopped}

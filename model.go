@@ -120,9 +120,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.refreshListItems()
 		return m, nil
 
+	case tea.QuitMsg:
+		// ctrl+c sends QuitMsg — stop all services before exiting
+		for _, svc := range m.services {
+			if svc.Status == Running {
+				svc.Stop()
+			}
+		}
+		return m, tea.Quit
+
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "q":
 			// Stop all services then quit
 			var stopCmds []tea.Cmd
 			for _, svc := range m.services {

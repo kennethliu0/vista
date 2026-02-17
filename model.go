@@ -343,9 +343,16 @@ func (m *model) refreshViewport() {
 			m.viewport.SetContent(fmt.Sprintf("No logs yet for %s...", item.name))
 			return
 		}
+		maxLen := 0
+		for _, svc := range m.services {
+			if item.services[svc.Name] && len(svc.Name) > maxLen {
+				maxLen = len(svc.Name)
+			}
+		}
 		lines := make([]string, len(merged))
 		for i, e := range merged {
-			lines[i] = fmt.Sprintf("%s %s", serviceNamePrefix(e.serviceName), e.line)
+			pad := strings.Repeat(" ", maxLen-len(e.serviceName))
+			lines[i] = fmt.Sprintf("%s%s %s", serviceNamePrefix(e.serviceName), pad, e.line)
 		}
 		m.viewport.SetContent(strings.Join(lines, "\n"))
 	}

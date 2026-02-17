@@ -110,9 +110,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.sidebarWidth = defaultSidebarWidth
 		viewportWidth := m.width - m.sidebarWidth - 4 // account for borders
+		if viewportWidth < 1 {
+			viewportWidth = 1
+		}
 
 		m.list.SetSize(m.sidebarWidth-2, contentHeight-2)
 		m.viewport.Width = viewportWidth - 2
+		if m.viewport.Width < 1 {
+			m.viewport.Width = 1
+		}
 		m.viewport.Height = contentHeight - 2
 
 		m.refreshViewport()

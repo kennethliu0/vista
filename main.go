@@ -87,9 +87,10 @@ func loadVistaJSON(path string) ([]*Service, []*globalView, error) {
 				gv.services[name] = false
 			}
 			for _, name := range gvc.Services {
-				if serviceNames[name] {
-					gv.services[name] = true
+				if !serviceNames[name] {
+					return nil, nil, fmt.Errorf("global view %q references unknown service %q", gvc.Name, name)
 				}
+				gv.services[name] = true
 			}
 		}
 		views = append(views, gv)

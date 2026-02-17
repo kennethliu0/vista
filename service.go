@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"sync"
 	"syscall"
 	"time"
 
@@ -46,6 +47,7 @@ type Service struct {
 	PID    int
 
 	cmd    *exec.Cmd
+	mu     sync.Mutex       // protects cancel and done
 	cancel context.CancelFunc
 	done   chan struct{} // closed when the scanner goroutine exits
 }
@@ -73,8 +75,11 @@ func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
 	return func() tea.Msg {
 
 		ctx, cancel := context.WithCancel(context.Background())
+		doneCh := make(chan struct{})
+		s.mu.Lock()
 		s.cancel = cancel
-		s.done = make(chan struct{})
+		s.done = doneCh
+		s.mu.Unlock()
 
 		s.cmd = exec.CommandContext(ctx, "sh", "-c", s.Cmd)
 		s.cmd.Dir = s.Dir
@@ -144,11 +149,14 @@ func (s *Service) Stop() tea.Cmd {
 
 	pid := s.PID
 	name := s.Name
-	done := s.done
 
-	// Cancel context
-	if s.cancel != nil {
-		s.cancel()
+	s.mu.Lock()
+	done := s.done
+	cancel := s.cancel
+	s.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
 	}
 
 	return func() tea.Msg {

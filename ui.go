@@ -7,7 +7,6 @@ var (
 	colorGreen = lipgloss.Color("#00FF00")
 	colorRed   = lipgloss.Color("#FF0000")
 	colorGray  = lipgloss.Color("#808080")
-	colorWhite = lipgloss.Color("#FFFFFF")
 	colorDim   = lipgloss.Color("#555555")
 
 	// Service name prefix colors (cycled per service)
@@ -28,8 +27,7 @@ var (
 			Bold(true).
 			Foreground(lipgloss.Color("#FAFAFA")).
 			Background(lipgloss.Color("#7D56F4")).
-			Padding(0, 1).
-			Width(80)
+			Padding(0, 1)
 
 	// Sidebar
 	sidebarStyle = lipgloss.NewStyle().
@@ -53,9 +51,7 @@ var (
 	statusError    = lipgloss.NewStyle().Foreground(colorRed).SetString("●")
 	statusStopped  = lipgloss.NewStyle().Foreground(colorGray).SetString("●")
 
-	// Active sidebar highlight
-	activeBorderColor = lipgloss.Color("#7D56F4")
-	dimBorderColor    = lipgloss.Color("#555555")
+	borderColor    = lipgloss.Color("#555555")
 
 	// Toggle panel (bottom of sidebar for global views)
 	toggleHeaderStyle = lipgloss.NewStyle().

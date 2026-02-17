@@ -462,7 +462,7 @@ func (m model) View() string {
 		sbStyle := sidebarStyle.
 			Width(m.sidebarWidth).
 			Height(contentHeight).
-			BorderForeground(dimBorderColor)
+			BorderForeground(borderColor)
 
 		if gv := m.selectedGlobalView(); gv != nil {
 			// Split sidebar: list on top, toggle panel on bottom
@@ -476,7 +476,7 @@ func (m model) View() string {
 			m.list.SetSize(m.sidebarWidth-2, listHeight)
 
 			innerWidth := m.sidebarWidth - 2 // account for border+padding
-			separator := lipgloss.NewStyle().Foreground(dimBorderColor).
+			separator := lipgloss.NewStyle().Foreground(borderColor).
 				Width(innerWidth).Render(strings.Repeat("─", innerWidth))
 
 			sidebarContent := lipgloss.JoinVertical(lipgloss.Left,
@@ -503,7 +503,7 @@ func (m model) View() string {
 	vpStyle := viewportStyle.
 		Width(vpWidth).
 		Height(m.height - 4).
-		BorderForeground(dimBorderColor)
+		BorderForeground(borderColor)
 
 	// Viewport header
 	vpHeader := ""

@@ -19,16 +19,10 @@ type serviceConfig struct {
 	Dir  string `json:"dir"`
 }
 
-func loadConfig() ([]*Service, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("cannot determine home directory: %w", err)
-	}
-
-	path := filepath.Join(home, ".config", "vista", "vista.json")
+func loadVistaJSON(path string) ([]*Service, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read %s: %w", path, err)
+		return nil, err
 	}
 
 	var cfg configFile
@@ -45,6 +39,25 @@ func loadConfig() ([]*Service, error) {
 		services[i] = &Service{Name: sc.Name, Cmd: sc.Cmd, Dir: sc.Dir}
 	}
 	return services, nil
+}
+
+func loadConfig() ([]*Service, error) {
+	// 1. Local ./vista.json
+	if svcs, err := loadVistaJSON("vista.json"); err == nil {
+		return svcs, nil
+	}
+
+	// 2. Global ~/.config/vista/vista.json
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("cannot determine home directory: %w", err)
+	}
+	globalPath := filepath.Join(home, ".config", "vista", "vista.json")
+	if svcs, err := loadVistaJSON(globalPath); err == nil {
+		return svcs, nil
+	}
+
+	return nil, fmt.Errorf("no config found (checked ./vista.json and %s)", globalPath)
 }
 
 func main() {

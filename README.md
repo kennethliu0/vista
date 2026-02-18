@@ -9,6 +9,7 @@ Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](h
 - Sidebar with live service status indicators (running/stopped/error)
 - Unified log viewport with per-service filtering
 - **Global views** — interleaved logs from multiple services, merged by timestamp
+- **Log search** — `/` to search with regex or plain text, with inline match highlighting and `n`/`N` navigation
 - Auto-starts all services on launch
 - Process group management (`setpgid` + `kill -PID`) for clean shutdowns on macOS
 - Mouse wheel scrolling support
@@ -73,9 +74,22 @@ Global views can also be created at runtime with the `g` key.
 | `d` | Delete selected global view |
 | `1`–`9` | Toggle service on/off in the selected global view |
 | `b` | Hide / show the sidebar |
+| `/` | Enter search mode |
+| `n` / `N` | Jump to next / previous match |
+| `esc` | Clear search and return to normal mode |
 | `q` / `ctrl+c` | Stop all services and quit |
 
 When a global view is selected, the sidebar splits to show a toggle panel at the bottom indicating which services are enabled or disabled. Use `1`–`9` to toggle individual services in the view.
+
+### Search
+
+Press `/` to open the search bar at the bottom of the screen. Queries are treated as **case-insensitive regular expressions** — plain text works too. While typing:
+
+- Matching lines get a `·` prefix; the current match gets a `>` prefix
+- Matched text is highlighted inline (yellow for the current match, orange for others)
+- The status bar shows `n/N matches · n/N: navigate · esc: clear`
+
+Press `enter` to commit the query and use `n`/`N` to jump between matches. Press `esc` to clear the search entirely. If the regex is invalid, Vista falls back to literal substring matching and shows the error in the status bar.
 
 ## Project Structure
 

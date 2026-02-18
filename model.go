@@ -398,8 +398,8 @@ func (m *model) syncSelection() {
 	}
 }
 
-// highlightLine wraps every match of re within line with searchHighlightStyle.
-func highlightLine(line string, re *regexp.Regexp) string {
+// highlightLine wraps every match of re within line using the given style.
+func highlightLine(line string, re *regexp.Regexp, style lipgloss.Style) string {
 	spans := re.FindAllStringIndex(line, -1)
 	if len(spans) == 0 {
 		return line
@@ -408,7 +408,7 @@ func highlightLine(line string, re *regexp.Regexp) string {
 	last := 0
 	for _, span := range spans {
 		b.WriteString(line[last:span[0]])
-		b.WriteString(searchHighlightStyle.Render(line[span[0]:span[1]]))
+		b.WriteString(style.Render(line[span[0]:span[1]]))
 		last = span[1]
 	}
 	b.WriteString(line[last:])
@@ -460,13 +460,16 @@ func (m *model) applySearchMarkers(lines []string) []string {
 
 	result := make([]string, len(lines))
 	for i, line := range lines {
-		if matchSet[i] && re != nil {
-			line = highlightLine(line, re)
-		}
 		switch {
 		case i == currentLine:
+			if re != nil {
+				line = highlightLine(line, re, searchCurrentHighlightStyle)
+			}
 			result[i] = searchCurrentStyle.Render(">") + " " + line
 		case matchSet[i]:
+			if re != nil {
+				line = highlightLine(line, re, searchHighlightStyle)
+			}
 			result[i] = searchMatchStyle.Render("·") + " " + line
 		default:
 			result[i] = "  " + line

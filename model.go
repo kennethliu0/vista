@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -28,6 +30,11 @@ type model struct {
 	nextViewNum   int  // counter for auto-naming global views
 	viewportDirty bool // logs arrived but viewport not yet refreshed
 	renderPending bool // a renderTickMsg is already scheduled
+	searchMode    bool
+	searchInput   textinput.Model
+	searchErr     error
+	matchLines    []int
+	matchIdx      int
 }
 
 func newModel(services []*Service, views []*globalView, logCh chan tea.Msg) model {
@@ -56,6 +63,10 @@ func newModel(services []*Service, views []*globalView, logCh chan tea.Msg) mode
 	// nextViewNum starts after any config-defined views
 	nextNum := len(views) + 1
 
+	ti := textinput.New()
+	ti.Placeholder = "search..."
+	ti.CharLimit = 100
+
 	return model{
 		services:     services,
 		globalViews:  views,
@@ -65,6 +76,7 @@ func newModel(services []*Service, views []*globalView, logCh chan tea.Msg) mode
 		activeIdx:    0,
 		sidebarWidth: defaultSidebarWidth,
 		nextViewNum:  nextNum,
+		searchInput:  ti,
 	}
 }
 
@@ -186,6 +198,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
+		// Search mode intercept — handle all keys before global switch
+		if m.searchMode {
+			switch msg.String() {
+			case "esc":
+				m.searchMode = false
+				m.searchInput.SetValue("")
+				m.matchLines = nil
+				m.matchIdx = 0
+				m.refreshViewport()
+				return m, nil
+			case "enter":
+				m.searchMode = false
+				m.searchInput.Blur()
+				if len(m.matchLines) > 0 {
+					m.viewport.SetYOffset(m.matchLines[m.matchIdx])
+				}
+				return m, nil
+			default:
+				var cmd tea.Cmd
+				m.searchInput, cmd = m.searchInput.Update(msg)
+				m.matchIdx = 0
+				m.refreshViewport()
+				return m, cmd
+			}
+		}
+
 		switch msg.String() {
 		case "q":
 			// Stop all services then quit
@@ -273,6 +311,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			return m, nil
+
+		case "/":
+			m.searchMode = true
+			m.searchInput.Focus()
+			return m, textinput.Blink
+
+		case "esc":
+			if m.searchInput.Value() != "" {
+				m.searchInput.SetValue("")
+				m.matchLines = nil
+				m.matchIdx = 0
+				m.refreshViewport()
+			}
+			return m, nil
+
+		case "n":
+			if len(m.matchLines) > 0 {
+				m.matchIdx = (m.matchIdx + 1) % len(m.matchLines)
+				m.viewport.SetYOffset(m.matchLines[m.matchIdx])
+				m.refreshViewport()
+			}
+			return m, nil
+
+		case "N":
+			if len(m.matchLines) > 0 {
+				n := len(m.matchLines)
+				m.matchIdx = (m.matchIdx - 1 + n) % n
+				m.viewport.SetYOffset(m.matchLines[m.matchIdx])
+				m.refreshViewport()
+			}
+			return m, nil
 		}
 
 		// Delegate remaining keys to the viewport (j/k scroll, pgup/pgdown, etc.)
@@ -329,6 +398,83 @@ func (m *model) syncSelection() {
 	}
 }
 
+// highlightLine wraps every match of re within line with searchHighlightStyle.
+func highlightLine(line string, re *regexp.Regexp) string {
+	spans := re.FindAllStringIndex(line, -1)
+	if len(spans) == 0 {
+		return line
+	}
+	var b strings.Builder
+	last := 0
+	for _, span := range spans {
+		b.WriteString(line[last:span[0]])
+		b.WriteString(searchHighlightStyle.Render(line[span[0]:span[1]]))
+		last = span[1]
+	}
+	b.WriteString(line[last:])
+	return b.String()
+}
+
+// applySearchMarkers adds 2-char prefix markers and inline highlights to lines.
+// Treats the query as a case-insensitive regex; falls back to literal substring on compile error.
+// Updates m.matchLines, m.matchIdx, and m.searchErr as side-effects.
+func (m *model) applySearchMarkers(lines []string) []string {
+	raw := strings.TrimSpace(m.searchInput.Value())
+	if raw == "" {
+		m.searchErr = nil
+		return lines
+	}
+
+	re, err := regexp.Compile("(?i)" + raw)
+	m.searchErr = err
+	if err != nil {
+		// Invalid regex — fall back to case-insensitive literal match (no inline highlight)
+		lower := strings.ToLower(raw)
+		m.matchLines = nil
+		for i, line := range lines {
+			if strings.Contains(strings.ToLower(line), lower) {
+				m.matchLines = append(m.matchLines, i)
+			}
+		}
+	} else {
+		m.matchLines = nil
+		for i, line := range lines {
+			if re.MatchString(line) {
+				m.matchLines = append(m.matchLines, i)
+			}
+		}
+	}
+
+	if m.matchIdx >= len(m.matchLines) {
+		m.matchIdx = 0
+	}
+
+	matchSet := make(map[int]bool, len(m.matchLines))
+	for _, idx := range m.matchLines {
+		matchSet[idx] = true
+	}
+	currentLine := -1
+	if len(m.matchLines) > 0 {
+		currentLine = m.matchLines[m.matchIdx]
+	}
+
+	result := make([]string, len(lines))
+	for i, line := range lines {
+		if matchSet[i] && re != nil {
+			line = highlightLine(line, re)
+		}
+		switch {
+		case i == currentLine:
+			result[i] = searchCurrentStyle.Render(">") + " " + line
+		case matchSet[i]:
+			result[i] = searchMatchStyle.Render("·") + " " + line
+		default:
+			result[i] = "  " + line
+		}
+	}
+	return result
+}
+
 func (m *model) refreshViewport() {
 	sel := m.list.SelectedItem()
 	if sel == nil {
@@ -346,6 +492,7 @@ func (m *model) refreshViewport() {
 		for i, e := range item.Logs {
 			lines[i] = e.line
 		}
+		lines = m.applySearchMarkers(lines)
 		m.viewport.SetContent(strings.Join(lines, "\n"))
 
 	case *globalView:
@@ -365,6 +512,7 @@ func (m *model) refreshViewport() {
 			pad := strings.Repeat(" ", maxLen-len(e.serviceName))
 			lines[i] = fmt.Sprintf("%s%s %s", serviceNamePrefix(e.serviceName), pad, e.line)
 		}
+		lines = m.applySearchMarkers(lines)
 		m.viewport.SetContent(strings.Join(lines, "\n"))
 	}
 }
@@ -520,12 +668,27 @@ func (m model) View() string {
 	// Main content
 	content := lipgloss.JoinHorizontal(lipgloss.Top, sidebar, logPane)
 
-	// Help bar — contextual based on selection
+	// Help / search bar
 	var helpText string
-	if m.selectedGlobalView() != nil {
-		helpText = "h/l: switch view • j/k: scroll • 1-9: toggle services • d: delete view • g: new view • b: hide sidebar • q: quit"
-	} else {
-		helpText = "h/l: switch view • j/k: scroll • s: start • x: stop • g: new global view • b: hide sidebar • q: quit"
+	switch {
+	case m.searchMode:
+		if m.searchErr != nil {
+			helpText = fmt.Sprintf("/ %s  [invalid regex: %s]", m.searchInput.View(), m.searchErr.Error())
+		} else {
+			helpText = "/" + m.searchInput.View()
+		}
+	case m.searchInput.Value() != "":
+		if m.searchErr != nil {
+			helpText = fmt.Sprintf("bad regex · %s · esc: clear", m.searchErr.Error())
+		} else if len(m.matchLines) == 0 {
+			helpText = fmt.Sprintf("no matches for %q · esc: clear", m.searchInput.Value())
+		} else {
+			helpText = fmt.Sprintf("%d/%d matches · n/N: navigate · esc: clear", m.matchIdx+1, len(m.matchLines))
+		}
+	case m.selectedGlobalView() != nil:
+		helpText = "h/l: switch view · j/k: scroll · 1-9: toggle · d: delete · g: new view · b: sidebar · /: search · q: quit"
+	default:
+		helpText = "h/l: switch view · j/k: scroll · s: start · x: stop · g: new view · b: sidebar · /: search · q: quit"
 	}
 	help := helpStyle.Render(helpText)
 

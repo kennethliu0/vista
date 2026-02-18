@@ -60,6 +60,11 @@ var (
 
 	toggleOnStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#50FA7B"))
 	toggleOffStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
+
+	// Search markers
+	searchCurrentStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Bold(true)
+	searchMatchStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFB86C"))
+	searchHighlightStyle  = lipgloss.NewStyle().Background(lipgloss.Color("#FFB86C")).Foreground(lipgloss.Color("#000000"))
 )
 
 func statusDot(s Status) string {

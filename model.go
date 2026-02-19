@@ -30,6 +30,7 @@ type model struct {
 	nextViewNum   int  // counter for auto-naming global views
 	viewportDirty bool // logs arrived but viewport not yet refreshed
 	renderPending bool // a renderTickMsg is already scheduled
+	followMode    bool // auto-scroll to bottom on new logs
 	searchMode    bool
 	searchInput   textinput.Model
 	searchErr     error
@@ -77,6 +78,7 @@ func newModel(services []*Service, views []*globalView, logCh chan tea.Msg) mode
 		sidebarWidth: defaultSidebarWidth,
 		nextViewNum:  nextNum,
 		searchInput:  ti,
+		followMode:   true,
 	}
 }
 
@@ -162,7 +164,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.viewportDirty {
 			m.viewportDirty = false
 			m.refreshViewport()
-			m.viewport.GotoBottom()
+			if m.followMode {
+				m.viewport.GotoBottom()
+			}
 		}
 		return m, nil
 
@@ -191,8 +195,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.MouseMsg:
 		if msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown {
+			prevOffset := m.viewport.YOffset
 			var cmd tea.Cmd
 			m.viewport, cmd = m.viewport.Update(msg)
+			if m.viewport.YOffset < prevOffset {
+				m.followMode = false
+			}
 			cmds = append(cmds, cmd)
 			return m, tea.Batch(cmds...)
 		}
@@ -342,11 +350,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.refreshViewport()
 			}
 			return m, nil
+
+		case "f":
+			m.followMode = !m.followMode
+			if m.followMode {
+				m.viewport.GotoBottom()
+			}
+			return m, nil
 		}
 
 		// Delegate remaining keys to the viewport (j/k scroll, pgup/pgdown, etc.)
+		prevOffset := m.viewport.YOffset
 		var cmd tea.Cmd
 		m.viewport, cmd = m.viewport.Update(msg)
+		// Disable follow if user scrolled up
+		if m.viewport.YOffset < prevOffset {
+			m.followMode = false
+		}
 		cmds = append(cmds, cmd)
 		return m, tea.Batch(cmds...)
 	}
@@ -689,9 +709,12 @@ func (m model) View() string {
 			helpText = fmt.Sprintf("%d/%d matches · n/N: navigate · esc: clear", m.matchIdx+1, len(m.matchLines))
 		}
 	case m.selectedGlobalView() != nil:
-		helpText = "h/l: switch view · j/k: scroll · 1-9: toggle · d: delete · g: new view · b: sidebar · /: search · q: quit"
+		helpText = "h/l: switch view · j/k: scroll · 1-9: toggle · d: delete · g: new view · b: sidebar · /: search · f: follow · q: quit"
 	default:
-		helpText = "h/l: switch view · j/k: scroll · s: start · x: stop · g: new view · b: sidebar · /: search · q: quit"
+		helpText = "h/l: switch view · j/k: scroll · s: start · x: stop · g: new view · b: sidebar · /: search · f: follow · q: quit"
+	}
+	if !m.followMode && !m.searchMode && m.searchInput.Value() == "" {
+		helpText += " · scroll paused, press f to resume"
 	}
 	help := helpStyle.Render(helpText)
 

@@ -99,14 +99,16 @@ func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
 
 		// Stream output in a goroutine
 		go func() {
+			defer close(s.done)
 			scanner := bufio.NewScanner(stdout)
 			scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		scan:
 			for scanner.Scan() {
 				msg := logMsg{serviceName: s.Name, line: scanner.Text(), time: time.Now()}
 				select {
 				case logCh <- msg:
 				case <-ctx.Done():
-					return
+					break scan
 				default:
 					// Channel full — drop line to avoid blocking
 				}
@@ -125,7 +127,6 @@ func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
 			trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus), time: time.Now()})
 			// Status update is critical — use a longer timeout
 			trySendTimeout(logCh, serviceStatusMsg{serviceName: s.Name, status: finalStatus})
-			close(s.done)
 		}()
 
 		return serviceStatusMsg{serviceName: s.Name, status: Running, pid: pid}

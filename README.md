@@ -10,6 +10,8 @@ Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](h
 - Unified log viewport with per-service filtering
 - **Global views** — interleaved logs from multiple services, merged by timestamp
 - **Log search** — `/` to search with regex or plain text, with inline match highlighting and `n`/`N` navigation
+- **Timestamps** — `t` toggles millisecond-precision timestamps (`HH:MM:SS.mmm`) on each log line
+- **Follow mode** — auto-scrolls with new logs; scrolling up pauses, `f` resumes
 - Auto-starts all services on launch
 - Process group management (`setpgid` + `kill -PID`) for clean shutdowns on macOS
 - Mouse wheel scrolling support
@@ -74,6 +76,8 @@ Global views can also be created at runtime with the `g` key.
 | `d` | Delete selected global view |
 | `1`–`9` | Toggle service on/off in the selected global view |
 | `b` | Hide / show the sidebar |
+| `t` | Toggle timestamps |
+| `f` | Toggle follow mode (auto-scroll) |
 | `/` | Enter search mode |
 | `n` / `N` | Jump to next / previous match |
 | `esc` | Clear search and return to normal mode |

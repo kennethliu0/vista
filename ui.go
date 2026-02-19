@@ -61,6 +61,9 @@ var (
 	toggleOnStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("#50FA7B"))
 	toggleOffStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#555555"))
 
+	// Timestamps
+	timestampStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#6272A4"))
+
 	// Search markers
 	searchCurrentStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF5555")).Bold(true)
 	searchMatchStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFB86C"))

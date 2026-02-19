@@ -19,7 +19,11 @@ Vista is a Bubble Tea TUI that manages multiple service processes and aggregates
 
 **Process management** (`service.go`): Each service runs via `sh -c <cmd>` with `syscall.SysProcAttr{Setpgid: true}` so the entire process group can be killed. Stop sends SIGTERM to `-PID`, then SIGKILL after 2s as fallback.
 
-**Navigation model** (`model.go`): No focus state. `h`/`l` navigate the sidebar list (with wrap-around), `j`/`k` always scroll the viewport. All action keys (`s`, `x`, `g`, `d`, `1-9`) work unconditionally. `b` toggles sidebar visibility.
+**Navigation model** (`model.go`): No focus state. `h`/`l` navigate the sidebar list (with wrap-around), `j`/`k` always scroll the viewport. All action keys (`s`, `x`, `g`, `d`, `1-9`) work unconditionally. `b` toggles sidebar visibility. `t` toggles timestamps. `f` toggles follow mode.
+
+**Search** (`model.go`): `/` enters search mode using a `textinput.Model`. Queries are case-insensitive regex (falls back to literal on invalid regex). `applySearchMarkers()` adds prefix markers (`>` current, `·` other matches) and inline highlighting via `highlightLine()`. `n`/`N` cycle through `matchLines`. Search state is global — query persists across view switches, matches recompute per view.
+
+**Follow mode** (`model.go`): `followMode` defaults to `true`. `renderTickMsg` only calls `GotoBottom()` when enabled. Scrolling up (keyboard or mouse) disables it automatically. `f` re-enables and jumps to bottom.
 
 **Config** (`main.go`): Services are loaded from `~/.config/vista/vista.json` at startup. No hot-reload.
 

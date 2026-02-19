@@ -30,8 +30,9 @@ type model struct {
 	nextViewNum   int  // counter for auto-naming global views
 	viewportDirty bool // logs arrived but viewport not yet refreshed
 	renderPending bool // a renderTickMsg is already scheduled
-	followMode    bool // auto-scroll to bottom on new logs
-	searchMode    bool
+	followMode     bool // auto-scroll to bottom on new logs
+	showTimestamps bool
+	searchMode     bool
 	searchInput   textinput.Model
 	searchErr     error
 	matchLines    []int
@@ -259,6 +260,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "b":
 			m.sidebarHidden = !m.sidebarHidden
 			m.viewport.Width = m.viewportContentWidth()
+			m.refreshViewport()
+			return m, nil
+
+		case "t":
+			m.showTimestamps = !m.showTimestamps
 			m.refreshViewport()
 			return m, nil
 
@@ -513,7 +519,11 @@ func (m *model) refreshViewport() {
 		}
 		lines := make([]string, len(item.Logs))
 		for i, e := range item.Logs {
-			lines[i] = e.line
+			if m.showTimestamps {
+				lines[i] = timestampStyle.Render(e.time.Format("15:04:05.000")) + " " + e.line
+			} else {
+				lines[i] = e.line
+			}
 		}
 		lines = m.applySearchMarkers(lines)
 		m.viewport.SetContent(strings.Join(lines, "\n"))
@@ -533,7 +543,11 @@ func (m *model) refreshViewport() {
 		lines := make([]string, len(merged))
 		for i, e := range merged {
 			pad := strings.Repeat(" ", maxLen-len(e.serviceName))
-			lines[i] = fmt.Sprintf("%s%s %s", serviceNamePrefix(e.serviceName), pad, e.line)
+			ts := ""
+			if m.showTimestamps {
+				ts = timestampStyle.Render(e.time.Format("15:04:05.000")) + " "
+			}
+			lines[i] = fmt.Sprintf("%s%s%s %s", ts, serviceNamePrefix(e.serviceName), pad, e.line)
 		}
 		lines = m.applySearchMarkers(lines)
 		m.viewport.SetContent(strings.Join(lines, "\n"))
@@ -709,9 +723,9 @@ func (m model) View() string {
 			helpText = fmt.Sprintf("%d/%d matches · n/N: navigate · esc: clear", m.matchIdx+1, len(m.matchLines))
 		}
 	case m.selectedGlobalView() != nil:
-		helpText = "h/l: switch view · j/k: scroll · 1-9: toggle · d: delete · g: new view · b: sidebar · /: search · f: follow · q: quit"
+		helpText = "h/l: switch view · j/k: scroll · 1-9: toggle · d: delete · g: new view · b: sidebar · /: search · t: timestamps · f: follow · q: quit"
 	default:
-		helpText = "h/l: switch view · j/k: scroll · s: start · x: stop · g: new view · b: sidebar · /: search · f: follow · q: quit"
+		helpText = "h/l: switch view · j/k: scroll · s: start · x: stop · g: new view · b: sidebar · /: search · t: timestamps · f: follow · q: quit"
 	}
 	if !m.followMode && !m.searchMode && m.searchInput.Value() == "" {
 		helpText += " · scroll paused, press f to resume"

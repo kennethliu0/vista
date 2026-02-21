@@ -27,7 +27,7 @@ go build -o bin/vista .
 
 ## Configuration
 
-Define your services in `~/.config/vista/vista.json` (or `./vista.json` for project-local config).
+Define your services in `./vista.json` for each project (or `~/.config/vista/vista.json` for global config).
 
 ```json
 {

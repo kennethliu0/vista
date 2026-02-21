@@ -2,6 +2,8 @@
 
 A macOS-native terminal UI for aggregating logs from multiple services in a monorepo. Vista starts, stops, and monitors processes while streaming their output into a unified TUI.
 
+![Vista Screenshot](https://github.com/user-attachments/assets/feff1d36-6bcc-4101-ad0b-5378f001ddc0)
+
 Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](https://github.com/charmbracelet/bubbles), and [Lip Gloss](https://github.com/charmbracelet/lipgloss).
 
 ## Features

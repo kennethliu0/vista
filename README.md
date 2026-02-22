@@ -27,17 +27,28 @@ go build -o bin/vista .
 
 ## Quick Start
 
-If you have a Docker Compose project, generate a `vista.json` automatically:
+Generate a `vista.json` from an existing service config:
 
 ```
 vista init
 ```
 
-Vista searches the current directory for `compose.yaml`, `compose.yml`, `docker-compose.yaml`, or `docker-compose.yml` and writes a `vista.json` that runs each service individually via `docker compose up <name>`. You can also point it at a specific file:
+Vista searches the current directory in priority order and uses the first match:
+
+| File | Format |
+|------|--------|
+| `Procfile` | Foreman/Overmind — uses each entry's command directly |
+| `compose.yaml` / `compose.yml` | Docker Compose — runs each service via `docker compose up <name>` |
+| `docker-compose.yaml` / `docker-compose.yml` | Docker Compose — same as above |
+
+You can also point it at a specific file — the format is detected from the filename:
 
 ```
+vista init path/to/Procfile
 vista init path/to/custom-compose.yaml
 ```
+
+If both a `Procfile` and a compose file exist, auto-discovery picks the `Procfile`. Pass the compose file explicitly to use it instead.
 
 ## Configuration
 

@@ -29,7 +29,11 @@ Vista is a Bubble Tea TUI that manages multiple service processes and aggregates
 
 **Config** (`main.go`): Services are loaded from `~/.config/vista/vista.json` at startup. No hot-reload.
 
-**Init subcommand** (`init.go`): `vista init [file]` parses a Docker Compose YAML file (auto-discovered or explicitly provided) and writes a `vista.json` to the current directory. Each compose service becomes a vista service with `cmd: "docker compose up <name>"`. Adds a single `"All"` global view. Refuses to overwrite an existing `vista.json`.
+**Init subcommand** (`init.go`): `vista init [file]` parses a service config file (auto-discovered or explicitly provided) and writes a `vista.json` to the current directory. Adds a single `"All"` global view. Refuses to overwrite an existing `vista.json`.
+
+- Auto-discovery priority: `Procfile` → `compose.yaml` → `compose.yml` → `docker-compose.yaml` → `docker-compose.yml`
+- Format is detected from the filename: `Procfile` → procfile parser (name: command lines); `*.yaml`/`*.yml` → compose parser (`docker compose up <name>` per service)
+- Explicit file path overrides auto-discovery; unrecognized extensions return a clear error
 
 ## Key Conventions
 

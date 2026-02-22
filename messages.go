@@ -9,7 +9,7 @@ import (
 
 // logEntry is a single timestamped log line stored per service.
 type logEntry struct {
-	time        time.Time
+	timestamp   time.Time
 	serviceName string
 	line        string
 }
@@ -18,7 +18,7 @@ type logEntry struct {
 type logMsg struct {
 	serviceName string
 	line        string
-	time        time.Time
+	timestamp   time.Time
 }
 
 // renderTickMsg fires after a short debounce interval to batch viewport refreshes.

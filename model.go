@@ -35,6 +35,7 @@ type model struct {
 	searchMode     bool
 	filterMode     bool // hide non-matching lines (grep-like)
 	searchInput   textinput.Model
+	searchRe      *regexp.Regexp // cached compiled regex for current query
 	searchErr     error
 	matchLines    []int
 	matchIdx      int
@@ -135,7 +136,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Append log entry to the matching service
 		for _, svc := range m.services {
 			if svc.Name == msg.serviceName {
-				entry := logEntry{time: msg.time, serviceName: msg.serviceName, line: msg.line}
+				entry := logEntry{timestamp: msg.timestamp, serviceName: msg.serviceName, line: msg.line}
 				svc.Logs = append(svc.Logs, entry)
 				if len(svc.Logs) > MaxLogLines {
 					svc.Logs = svc.Logs[len(svc.Logs)-MaxLogLines:]
@@ -214,6 +215,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "esc":
 				m.searchMode = false
 				m.searchInput.SetValue("")
+				m.searchRe = nil
+				m.searchErr = nil
 				m.matchLines = nil
 				m.matchIdx = 0
 				m.refreshViewport()
@@ -229,6 +232,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				var cmd tea.Cmd
 				m.searchInput, cmd = m.searchInput.Update(msg)
 				m.matchIdx = 0
+				m.recompileSearch()
 				m.refreshViewport()
 				return m, cmd
 			}
@@ -270,7 +274,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 
 		case "s":
-			if svc := m.selectedService(); svc != nil && svc.Status == Stopped || svc != nil && svc.Status == Error {
+			if svc := m.selectedService(); (svc != nil && svc.Status == Stopped) || (svc != nil && svc.Status == Error) {
 				return m, svc.Start(m.logCh)
 			}
 			return m, nil
@@ -341,6 +345,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			if m.searchInput.Value() != "" {
 				m.searchInput.SetValue("")
+				m.searchRe = nil
+				m.searchErr = nil
 				m.matchLines = nil
 				m.matchIdx = 0
 				m.refreshViewport()
@@ -454,6 +460,20 @@ func highlightLine(line string, re *regexp.Regexp, style lipgloss.Style) string 
 	return b.String()
 }
 
+// recompileSearch compiles the current search query into m.searchRe.
+// Called whenever the query text changes so applySearchMarkers can reuse it.
+func (m *model) recompileSearch() {
+	raw := strings.TrimSpace(m.searchInput.Value())
+	if raw == "" {
+		m.searchRe = nil
+		m.searchErr = nil
+		return
+	}
+	re, err := regexp.Compile("(?i)" + raw)
+	m.searchRe = re
+	m.searchErr = err
+}
+
 // applySearchMarkers adds 2-char prefix markers and inline highlights to lines.
 // Treats the query as a case-insensitive regex; falls back to literal substring on compile error.
 // Updates m.matchLines, m.matchIdx, and m.searchErr as side-effects.
@@ -464,8 +484,8 @@ func (m *model) applySearchMarkers(lines []string) []string {
 		return lines
 	}
 
-	re, err := regexp.Compile("(?i)" + raw)
-	m.searchErr = err
+	re := m.searchRe
+	err := m.searchErr
 	if err != nil {
 		// Invalid regex — fall back to case-insensitive literal match (no inline highlight)
 		lower := strings.ToLower(raw)
@@ -563,7 +583,7 @@ func (m *model) refreshViewport() {
 		lines := make([]string, len(item.Logs))
 		for i, e := range item.Logs {
 			if m.showTimestamps {
-				lines[i] = timestampStyle.Render(e.time.Format("15:04:05.000")) + " " + e.line
+				lines[i] = timestampStyle.Render(e.timestamp.Format("15:04:05.000")) + " " + e.line
 			} else {
 				lines[i] = e.line
 			}
@@ -588,7 +608,7 @@ func (m *model) refreshViewport() {
 			pad := strings.Repeat(" ", maxLen-len(e.serviceName))
 			ts := ""
 			if m.showTimestamps {
-				ts = timestampStyle.Render(e.time.Format("15:04:05.000")) + " "
+				ts = timestampStyle.Render(e.timestamp.Format("15:04:05.000")) + " "
 			}
 			lines[i] = fmt.Sprintf("%s%s%s %s", ts, serviceNamePrefix(e.serviceName), pad, e.line)
 		}
@@ -623,7 +643,7 @@ func (m *model) mergeGlobalViewLogs(gv *globalView) []logEntry {
 			if sources[i].pos >= len(sources[i].logs) {
 				continue
 			}
-			if minIdx == -1 || sources[i].logs[sources[i].pos].time.Before(sources[minIdx].logs[sources[minIdx].pos].time) {
+			if minIdx == -1 || sources[i].logs[sources[i].pos].timestamp.Before(sources[minIdx].logs[sources[minIdx].pos].timestamp) {
 				minIdx = i
 			}
 		}
@@ -733,16 +753,6 @@ func (m model) View() string {
 		Height(m.height - 4).
 		BorderForeground(borderColor)
 
-	// Viewport header
-	vpHeader := ""
-	sel := m.list.SelectedItem()
-	switch item := sel.(type) {
-	case *Service:
-		vpHeader = fmt.Sprintf("─ %s ", item.Name)
-	case *globalView:
-		vpHeader = fmt.Sprintf("─ %s ", item.name)
-	}
-	_ = vpHeader
 	logPane := vpStyle.Render(m.viewport.View())
 
 	// Main content

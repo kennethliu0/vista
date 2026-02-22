@@ -165,7 +165,7 @@ func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
 			scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		scan:
 			for scanner.Scan() {
-				msg := logMsg{serviceName: s.Name, line: scanner.Text(), time: time.Now()}
+				msg := logMsg{serviceName: s.Name, line: scanner.Text(), timestamp: time.Now()}
 				select {
 				case logCh <- msg:
 				case <-ctx.Done():
@@ -181,11 +181,11 @@ func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
 			finalStatus := Stopped
 			if err != nil && ctx.Err() == nil {
 				finalStatus = Error
-				trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] process exited with error: %v", err), time: time.Now()})
+				trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] process exited with error: %v", err), timestamp: time.Now()})
 			} else {
-				trySendTimeout(logCh, logMsg{serviceName: s.Name, line: "[vista] process stopped", time: time.Now()})
+				trySendTimeout(logCh, logMsg{serviceName: s.Name, line: "[vista] process stopped", timestamp: time.Now()})
 			}
-			trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus), time: time.Now()})
+			trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus), timestamp: time.Now()})
 			// Status update is critical — use a longer timeout
 			trySendTimeout(logCh, serviceStatusMsg{serviceName: s.Name, status: finalStatus})
 		}()
@@ -206,7 +206,7 @@ func trySendTimeout(ch chan<- tea.Msg, msg tea.Msg) {
 // Restart stops the service (if running) and starts it again.
 func (s *Service) Restart(logCh chan<- tea.Msg) tea.Cmd {
 	if s.Status == Stopped || s.Status == Error {
-		trySendTimeout(logCh, logMsg{serviceName: s.Name, line: "[vista] restarting...", time: time.Now()})
+		trySendTimeout(logCh, logMsg{serviceName: s.Name, line: "[vista] restarting...", timestamp: time.Now()})
 		return s.Start(logCh)
 	}
 
@@ -232,7 +232,7 @@ func (s *Service) Restart(logCh chan<- tea.Msg) tea.Cmd {
 			<-done
 		}
 
-		trySendTimeout(logCh, logMsg{serviceName: s.Name, line: "[vista] restarting...", time: time.Now()})
+		trySendTimeout(logCh, logMsg{serviceName: s.Name, line: "[vista] restarting...", timestamp: time.Now()})
 
 		// Inline Start: s.Status is still Running here (the Stopped msg from the
 		// old goroutine is already enqueued in logCh), so bypass the status guard.
@@ -268,7 +268,7 @@ func (s *Service) Restart(logCh chan<- tea.Msg) tea.Cmd {
 			scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 		scan:
 			for scanner.Scan() {
-				msg := logMsg{serviceName: s.Name, line: scanner.Text(), time: time.Now()}
+				msg := logMsg{serviceName: s.Name, line: scanner.Text(), timestamp: time.Now()}
 				select {
 				case logCh <- msg:
 				case <-ctx.Done():
@@ -280,11 +280,11 @@ func (s *Service) Restart(logCh chan<- tea.Msg) tea.Cmd {
 			finalStatus := Stopped
 			if err != nil && ctx.Err() == nil {
 				finalStatus = Error
-				trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] process exited with error: %v", err), time: time.Now()})
+				trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] process exited with error: %v", err), timestamp: time.Now()})
 			} else {
-				trySendTimeout(logCh, logMsg{serviceName: s.Name, line: "[vista] process stopped", time: time.Now()})
+				trySendTimeout(logCh, logMsg{serviceName: s.Name, line: "[vista] process stopped", timestamp: time.Now()})
 			}
-			trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus), time: time.Now()})
+			trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus), timestamp: time.Now()})
 			trySendTimeout(logCh, serviceStatusMsg{serviceName: s.Name, status: finalStatus})
 		}()
 

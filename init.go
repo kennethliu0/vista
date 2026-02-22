@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -74,11 +75,7 @@ func parseCompose(path string, cwd string) ([]serviceConfig, error) {
 	for name := range cf.Services {
 		names = append(names, name)
 	}
-	for i := 1; i < len(names); i++ {
-		for j := i; j > 0 && names[j] < names[j-1]; j-- {
-			names[j], names[j-1] = names[j-1], names[j]
-		}
-	}
+	sort.Strings(names)
 
 	services := make([]serviceConfig, len(names))
 	for i, name := range names {

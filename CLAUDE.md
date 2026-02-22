@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 go build -o bin/vista .
-./bin/vista
+./bin/vista           # start TUI
+./bin/vista init      # generate vista.json from docker compose file
+./bin/vista init path/to/compose.yaml  # use a specific file
 ```
 
 No test suite, linter config, or CI pipeline exists yet.
@@ -27,6 +29,8 @@ Vista is a Bubble Tea TUI that manages multiple service processes and aggregates
 
 **Config** (`main.go`): Services are loaded from `~/.config/vista/vista.json` at startup. No hot-reload.
 
+**Init subcommand** (`init.go`): `vista init [file]` parses a Docker Compose YAML file (auto-discovered or explicitly provided) and writes a `vista.json` to the current directory. Each compose service becomes a vista service with `cmd: "docker compose up <name>"`. Adds a single `"All"` global view. Refuses to overwrite an existing `vista.json`.
+
 ## Key Conventions
 
 - `~` and `~/...` are supported in service `dir` fields and are expanded at load time via `expandHome`
@@ -37,3 +41,5 @@ Vista is a Bubble Tea TUI that manages multiple service processes and aggregates
 ## Dependencies
 
 Charmbracelet stack (v1 stable): bubbletea v1.3.10, bubbles v1.0.0, lipgloss v1.1.0. Use Context7 MCP for up-to-date API docs.
+
+`gopkg.in/yaml.v3` — used by `init.go` for Docker Compose parsing.

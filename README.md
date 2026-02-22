@@ -25,6 +25,20 @@ Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](h
 go build -o bin/vista .
 ```
 
+## Quick Start
+
+If you have a Docker Compose project, generate a `vista.json` automatically:
+
+```
+vista init
+```
+
+Vista searches the current directory for `compose.yaml`, `compose.yml`, `docker-compose.yaml`, or `docker-compose.yml` and writes a `vista.json` that runs each service individually via `docker compose up <name>`. You can also point it at a specific file:
+
+```
+vista init path/to/custom-compose.yaml
+```
+
 ## Configuration
 
 Define your services in `./vista.json` for each project (or `~/.config/vista/vista.json` for global config).
@@ -63,7 +77,8 @@ Global views can also be created at runtime with the `g` key.
 ## Usage
 
 ```
-./bin/vista
+./bin/vista          # start the TUI
+./bin/vista init     # generate vista.json from a compose file
 ```
 
 ## Key Bindings
@@ -100,7 +115,8 @@ Press `enter` to commit the query and use `n`/`N` to jump between matches. Press
 ## Project Structure
 
 ```
-main.go       Entry point, config loading (services + global views)
+main.go       Entry point, config loading (services + global views), subcommand dispatch
+init.go       `vista init` — generates vista.json from a Docker Compose file
 model.go      Bubble Tea model (Init, Update, View)
 service.go    Service struct, Start/Stop with process groups
 messages.go   Custom message types, log channel listener, globalView type

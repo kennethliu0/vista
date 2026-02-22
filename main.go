@@ -127,6 +127,18 @@ func loadConfig() ([]*Service, []*globalView, error) {
 }
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "init" {
+		var file string
+		if len(os.Args) > 2 {
+			file = os.Args[2]
+		}
+		if err := runInit(file); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	services, views, err := loadConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

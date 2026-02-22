@@ -142,6 +142,94 @@ func trySendTimeout(ch chan<- tea.Msg, msg tea.Msg) {
 	}
 }
 
+// Restart stops the service (if running) and starts it again.
+func (s *Service) Restart(logCh chan<- tea.Msg) tea.Cmd {
+	if s.Status == Stopped || s.Status == Error {
+		trySendTimeout(logCh, logMsg{serviceName: s.Name, line: "[vista] restarting...", time: time.Now()})
+		return s.Start(logCh)
+	}
+
+	pid := s.PID
+
+	s.mu.Lock()
+	done := s.done
+	cancel := s.cancel
+	s.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+
+	return func() tea.Msg {
+		_ = syscall.Kill(-pid, syscall.SIGTERM)
+
+		// Wait for the scanner goroutine to finish, with SIGKILL fallback.
+		select {
+		case <-done:
+		case <-time.After(3 * time.Second):
+			_ = syscall.Kill(-pid, syscall.SIGKILL)
+			<-done
+		}
+
+		trySendTimeout(logCh, logMsg{serviceName: s.Name, line: "[vista] restarting...", time: time.Now()})
+
+		// Inline Start: s.Status is still Running here (the Stopped msg from the
+		// old goroutine is already enqueued in logCh), so bypass the status guard.
+		ctx, newCancel := context.WithCancel(context.Background())
+		newDone := make(chan struct{})
+		s.mu.Lock()
+		s.cancel = newCancel
+		s.done = newDone
+		s.mu.Unlock()
+
+		s.cmd = exec.CommandContext(ctx, "sh", "-c", s.Cmd)
+		s.cmd.Dir = s.Dir
+		s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+		stdout, err := s.cmd.StdoutPipe()
+		if err != nil {
+			newCancel()
+			return serviceStatusMsg{serviceName: s.Name, status: Error, err: err}
+		}
+		s.cmd.Stderr = s.cmd.Stdout
+
+		if err := s.cmd.Start(); err != nil {
+			newCancel()
+			return serviceStatusMsg{serviceName: s.Name, status: Error, err: err}
+		}
+
+		pid := s.cmd.Process.Pid
+
+		go func() {
+			defer close(newDone)
+			scanner := bufio.NewScanner(stdout)
+			scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		scan:
+			for scanner.Scan() {
+				msg := logMsg{serviceName: s.Name, line: scanner.Text(), time: time.Now()}
+				select {
+				case logCh <- msg:
+				case <-ctx.Done():
+					break scan
+				default:
+				}
+			}
+			err := s.cmd.Wait()
+			finalStatus := Stopped
+			if err != nil && ctx.Err() == nil {
+				finalStatus = Error
+				trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] process exited with error: %v", err), time: time.Now()})
+			} else {
+				trySendTimeout(logCh, logMsg{serviceName: s.Name, line: "[vista] process stopped", time: time.Now()})
+			}
+			trySendTimeout(logCh, logMsg{serviceName: s.Name, line: fmt.Sprintf("[vista] status: %s", finalStatus), time: time.Now()})
+			trySendTimeout(logCh, serviceStatusMsg{serviceName: s.Name, status: finalStatus})
+		}()
+
+		return serviceStatusMsg{serviceName: s.Name, status: Running, pid: pid}
+	}
+}
+
 // Stop terminates the service and its process group.
 func (s *Service) Stop() tea.Cmd {
 	if (s.Status != Running && s.Status != Stopping) || s.PID == 0 {

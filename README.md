@@ -100,6 +100,7 @@ Global views can also be created at runtime with the `g` key.
 | `j` / `k` | Scroll logs up / down |
 | `s` | Start selected service |
 | `x` | Stop selected service |
+| `r` | Restart selected service |
 | `g` | Create a new global view (all services enabled) |
 | `d` | Delete selected global view |
 | `1`–`9` | Toggle service on/off in the selected global view |

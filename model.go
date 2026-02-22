@@ -281,6 +281,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
+		case "r":
+			if svc := m.selectedService(); svc != nil {
+				return m, svc.Restart(m.logCh)
+			}
+			return m, nil
+
 		case "g":
 			gv := &globalView{
 				name:     fmt.Sprintf("Global %d", m.nextViewNum),
@@ -766,7 +772,7 @@ func (m model) View() string {
 	case m.selectedGlobalView() != nil:
 		helpText = "h/l: switch view · j/k: scroll · 1-9: toggle · d: delete · g: new view · b: sidebar · /: search · t: timestamps · f: follow · q: quit"
 	default:
-		helpText = "h/l: switch view · j/k: scroll · s: start · x: stop · g: new view · b: sidebar · /: search · t: timestamps · f: follow · q: quit"
+		helpText = "h/l: switch view · j/k: scroll · s: start · x: stop · r: restart · g: new view · b: sidebar · /: search · t: timestamps · f: follow · q: quit"
 	}
 	if !m.followMode && !m.searchMode && m.searchInput.Value() == "" {
 		helpText += " · scroll paused, press f to resume"

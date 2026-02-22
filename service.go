@@ -4,7 +4,10 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -39,12 +42,13 @@ func (s Status) String() string {
 
 // Service represents a managed process in the monorepo.
 type Service struct {
-	Name   string
-	Cmd    string
-	Dir    string
-	Status Status
-	Logs   []logEntry
-	PID    int
+	Name    string
+	Cmd     string
+	Dir     string
+	EnvFile string // explicit env file; empty = auto-discover .env in Dir
+	Status  Status
+	Logs    []logEntry
+	PID     int
 
 	cmd    *exec.Cmd
 	mu     sync.Mutex       // protects cancel and done
@@ -67,6 +71,62 @@ func (s *Service) FilterValue() string {
 	return s.Name
 }
 
+// loadEnvFile parses a .env file and returns key=value pairs.
+// Supports blank lines, # comments, optional export prefix, and quoted values.
+func loadEnvFile(path string) ([]string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var pairs []string
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		line = strings.TrimPrefix(line, "export ")
+		idx := strings.Index(line, "=")
+		if idx <= 0 {
+			continue
+		}
+		key := strings.TrimSpace(line[:idx])
+		val := strings.TrimSpace(line[idx+1:])
+		// Strip matching outer quotes.
+		if len(val) >= 2 && ((val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'')) {
+			val = val[1 : len(val)-1]
+		}
+		pairs = append(pairs, key+"="+val)
+	}
+	return pairs, nil
+}
+
+// serviceEnv builds the environment for the service process. It starts from
+// the current process environment, then overlays vars from the env file.
+// If EnvFile is set it is used directly; otherwise .env in Dir (or cwd) is
+// tried and silently skipped if absent.
+func (s *Service) serviceEnv() []string {
+	envFilePath := s.EnvFile
+	if envFilePath == "" {
+		dir := s.Dir
+		if dir == "" {
+			dir = "."
+		}
+		candidate := filepath.Join(dir, ".env")
+		if _, err := os.Stat(candidate); err == nil {
+			envFilePath = candidate
+		}
+	}
+	base := os.Environ()
+	if envFilePath == "" {
+		return base
+	}
+	pairs, err := loadEnvFile(envFilePath)
+	if err != nil {
+		return base
+	}
+	return append(base, pairs...)
+}
+
 // Start launches the service process and streams logs to logCh.
 func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
 	if s.Status == Running || s.Status == Stopping {
@@ -83,6 +143,7 @@ func (s *Service) Start(logCh chan<- tea.Msg) tea.Cmd {
 
 		s.cmd = exec.CommandContext(ctx, "sh", "-c", s.Cmd)
 		s.cmd.Dir = s.Dir
+		s.cmd.Env = s.serviceEnv()
 		s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 		stdout, err := s.cmd.StdoutPipe()
@@ -184,6 +245,7 @@ func (s *Service) Restart(logCh chan<- tea.Msg) tea.Cmd {
 
 		s.cmd = exec.CommandContext(ctx, "sh", "-c", s.Cmd)
 		s.cmd.Dir = s.Dir
+		s.cmd.Env = s.serviceEnv()
 		s.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 		stdout, err := s.cmd.StdoutPipe()

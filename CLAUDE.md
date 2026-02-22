@@ -41,7 +41,8 @@ Vista is a Bubble Tea TUI that manages multiple service processes and aggregates
 
 ## Key Conventions
 
-- `~` and `~/...` are supported in service `dir` fields and are expanded at load time via `expandHome`
+- `~` and `~/...` are supported in service `dir` and `envFile` fields and are expanded at load time via `expandHome`
+- `envFile` is optional — if omitted, `serviceEnv()` auto-discovers `.env` in the service's `dir` (silently skipped if absent). Explicit `envFile` is validated at load time. Env vars are overlaid on top of `os.Environ()`.
 - Commands are executed through `sh -c`, so shell syntax (pipes, loops) works
 - `Start()` and `Stop()` return `nil` as a `tea.Cmd` (not from inside the closure) when the operation is a no-op, to avoid sending nil `tea.Msg` which panics Bubble Tea
 - Status updates flow through two paths: `serviceStatusMsg` for start/stop events, and `logMsg` with `[vista]` prefix for process lifecycle events logged to the buffer

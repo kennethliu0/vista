@@ -75,6 +75,7 @@ Define your services in `./vista.json` for each project (or `~/.config/vista/vis
 | `name` | Display name in the sidebar |
 | `cmd` | Shell command to run (executed via `sh -c`) |
 | `dir` | Working directory. Supports `~` expansion. |
+| `envFile` | Path to a `.env` file to load (optional). If omitted, Vista auto-loads `.env` from `dir` if one exists. |
 
 ### Global Views
 

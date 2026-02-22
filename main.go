@@ -15,9 +15,10 @@ type configFile struct {
 }
 
 type serviceConfig struct {
-	Name string `json:"name"`
-	Cmd  string `json:"cmd"`
-	Dir  string `json:"dir"`
+	Name    string `json:"name"`
+	Cmd     string `json:"cmd"`
+	Dir     string `json:"dir"`
+	EnvFile string `json:"envFile"`
 }
 
 type globalViewConfig struct {
@@ -67,7 +68,16 @@ func loadVistaJSON(path string) ([]*Service, []*globalView, error) {
 				return nil, nil, fmt.Errorf("service %q: directory %q does not exist", sc.Name, dir)
 			}
 		}
-		services[i] = &Service{Name: sc.Name, Cmd: sc.Cmd, Dir: dir}
+		envFile, err := expandHome(sc.EnvFile)
+		if err != nil {
+			return nil, nil, fmt.Errorf("service %q: %w", sc.Name, err)
+		}
+		if envFile != "" {
+			if _, err := os.Stat(envFile); os.IsNotExist(err) {
+				return nil, nil, fmt.Errorf("service %q: envFile %q does not exist", sc.Name, envFile)
+			}
+		}
+		services[i] = &Service{Name: sc.Name, Cmd: sc.Cmd, Dir: dir, EnvFile: envFile}
 	}
 
 	var views []*globalView

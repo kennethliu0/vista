@@ -25,6 +25,8 @@ Vista is a Bubble Tea TUI that manages multiple service processes and aggregates
 
 **Search** (`model.go`): `/` enters search mode using a `textinput.Model`. Queries are case-insensitive regex (falls back to literal on invalid regex). `applySearchMarkers()` adds prefix markers (`>` current, `·` other matches) and inline highlighting via `highlightLine()`. `n`/`N` cycle through `matchLines`. Search state is global — query persists across view switches, matches recompute per view.
 
+**Filter mode** (`model.go`): `F` toggles `filterMode`. When on, `applySearchMarkers()` returns only matching lines (non-matches hidden), and `matchLines` is rewritten as a 0-based index sequence into the filtered output so `n`/`N` navigation continues to work unchanged. Status bar always shows `F: filter on/off` when a search is active.
+
 **Follow mode** (`model.go`): `followMode` defaults to `true`. `renderTickMsg` only calls `GotoBottom()` when enabled. Scrolling up (keyboard or mouse) disables it automatically. `f` re-enables and jumps to bottom.
 
 **Config** (`main.go`): Services are loaded from `~/.config/vista/vista.json` at startup. No hot-reload.

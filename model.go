@@ -33,6 +33,7 @@ type model struct {
 	followMode     bool // auto-scroll to bottom on new logs
 	showTimestamps bool
 	searchMode     bool
+	filterMode     bool // hide non-matching lines (grep-like)
 	searchInput   textinput.Model
 	searchErr     error
 	matchLines    []int
@@ -363,6 +364,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.viewport.GotoBottom()
 			}
 			return m, nil
+
+		case "F":
+			m.filterMode = !m.filterMode
+			m.matchIdx = 0
+			m.refreshViewport()
+			return m, nil
 		}
 
 		// Delegate remaining keys to the viewport (j/k scroll, pgup/pgdown, etc.)
@@ -473,6 +480,36 @@ func (m *model) applySearchMarkers(lines []string) []string {
 
 	if m.matchIdx >= len(m.matchLines) {
 		m.matchIdx = 0
+	}
+
+	// Filter mode: return only matching lines; every line in the result is a
+	// match so matchLines becomes a simple 0-based index sequence.
+	if m.filterMode {
+		result := make([]string, len(m.matchLines))
+		for j, origIdx := range m.matchLines {
+			line := lines[origIdx]
+			if re != nil {
+				if j == m.matchIdx {
+					line = highlightLine(line, re, searchCurrentHighlightStyle)
+					result[j] = searchCurrentStyle.Render(">") + " " + line
+				} else {
+					line = highlightLine(line, re, searchHighlightStyle)
+					result[j] = searchMatchStyle.Render("·") + " " + line
+				}
+			} else {
+				if j == m.matchIdx {
+					result[j] = searchCurrentStyle.Render(">") + " " + line
+				} else {
+					result[j] = searchMatchStyle.Render("·") + " " + line
+				}
+			}
+		}
+		// In filter mode matchLines tracks positions within the filtered output.
+		m.matchLines = make([]int, len(result))
+		for i := range result {
+			m.matchLines[i] = i
+		}
+		return result
 	}
 
 	matchSet := make(map[int]bool, len(m.matchLines))
@@ -720,7 +757,11 @@ func (m model) View() string {
 		} else if len(m.matchLines) == 0 {
 			helpText = fmt.Sprintf("no matches for %q · esc: clear", m.searchInput.Value())
 		} else {
-			helpText = fmt.Sprintf("%d/%d matches · n/N: navigate · esc: clear", m.matchIdx+1, len(m.matchLines))
+			filterIndicator := "off"
+			if m.filterMode {
+				filterIndicator = "on"
+			}
+			helpText = fmt.Sprintf("%d/%d matches · n/N: navigate · F: filter %s · esc: clear", m.matchIdx+1, len(m.matchLines), filterIndicator)
 		}
 	case m.selectedGlobalView() != nil:
 		helpText = "h/l: switch view · j/k: scroll · 1-9: toggle · d: delete · g: new view · b: sidebar · /: search · t: timestamps · f: follow · q: quit"

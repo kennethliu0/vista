@@ -108,6 +108,7 @@ Global views can also be created at runtime with the `g` key.
 | `f` | Toggle follow mode (auto-scroll) |
 | `/` | Enter search mode |
 | `n` / `N` | Jump to next / previous match |
+| `F` | Toggle filter mode (hide non-matching lines) |
 | `esc` | Clear search and return to normal mode |
 | `q` / `ctrl+c` | Stop all services and quit |
 
@@ -122,6 +123,8 @@ Press `/` to open the search bar at the bottom of the screen. Queries are treate
 - The status bar shows `n/N matches · n/N: navigate · esc: clear`
 
 Press `enter` to commit the query and use `n`/`N` to jump between matches. Press `esc` to clear the search entirely. If the regex is invalid, Vista falls back to literal substring matching and shows the error in the status bar.
+
+Press `F` to toggle **filter mode** — non-matching lines are hidden and only matches are shown, similar to `grep`. The status bar shows `F: filter on/off` whenever a search is active. `n`/`N` navigation continues to work in filter mode.
 
 ## Project Structure
 

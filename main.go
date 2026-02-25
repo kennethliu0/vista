@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -159,6 +161,22 @@ func main() {
 	m := newModel(services, views, logCh)
 
 	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
+
+	// Kill child process groups when the terminal tab is closed (SIGHUP) or
+	// the process is terminated (SIGTERM). Children run in their own process
+	// groups (Setpgid: true), so they survive the parent dying without this.
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGHUP, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		for _, svc := range services {
+			if svc.PID != 0 {
+				_ = syscall.Kill(-svc.PID, syscall.SIGKILL)
+			}
+		}
+		os.Exit(0)
+	}()
+
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

@@ -1,0 +1,48 @@
+{
+  "services": [
+    {
+      "name": "api",
+      "cmd": "while true; do printf '[INFO]  listening on :8080\\n[INFO]  GET /api/users 200 12ms\\n[INFO]  GET /api/posts 200 8ms\\n[INFO]  POST /api/posts 201 34ms\\n[WARN]  slow query detected (142ms)\\n[INFO]  GET /api/users/42 200 5ms\\n'; sleep 2; done",
+      "dir": "~"
+    },
+    {
+      "name": "web",
+      "cmd": "while true; do printf '  vite v5.0.0  ready in 312ms\\n  ➜  Local:   http://localhost:5173/\\n[HMR]  connected\\n[HMR]  file changed: src/App.tsx\\n[HMR]  update applied in 23ms\\n'; sleep 3; done",
+      "dir": "~"
+    },
+    {
+      "name": "worker",
+      "cmd": "while true; do printf '[worker] processing job 8821 (email:send)\\n[worker] job 8821 done in 0.4s\\n[worker] processing job 8822 (report:generate)\\n[worker] job 8822 done in 1.2s\\n[worker] queue empty, waiting...\\n'; sleep 2; done",
+      "dir": "~"
+    },
+    {
+      "name": "postgres",
+      "cmd": "while true; do printf 'LOG:  database system is ready to accept connections\\nLOG:  checkpoint starting: time\\nLOG:  checkpoint complete: wrote 43 buffers (0.3%)\\nLOG:  autovacuum: found 12 removable dead tuples\\n'; sleep 4; done",
+      "dir": "~"
+    },
+    {
+      "name": "redis",
+      "cmd": "while true; do printf '* Ready to accept connections\\n* DB 0: 1024 keys, 0 expires\\n. DB saved on disk\\n* Background saving started\\n* Background saving terminated with success\\n'; sleep 5; done",
+      "dir": "~"
+    },
+    {
+      "name": "ngrok",
+      "cmd": "while true; do printf 'started tunnel  url=https://abc123.ngrok.io\\nGET  /api/users     200 OK\\nGET  /api/posts      200 OK\\nPOST /api/posts      201 Created\\nGET  /api/users/42  200 OK\\n'; sleep 3; done",
+      "dir": "~"
+    }
+  ],
+  "globalViews": [
+    {
+      "name": "All",
+      "services": []
+    },
+    {
+      "name": "App",
+      "services": ["api", "web", "worker"]
+    },
+    {
+      "name": "Infra",
+      "services": ["postgres", "redis"]
+    }
+  ]
+}

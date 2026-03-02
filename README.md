@@ -22,7 +22,7 @@ Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](h
 ## Install
 
 ```
-go build -o bin/vista .
+go build -o dist/vista .
 ```
 
 ## Quick Start
@@ -89,8 +89,8 @@ Global views can also be created at runtime with the `g` key.
 ## Usage
 
 ```
-./bin/vista          # start the TUI
-./bin/vista init     # generate vista.json from a compose file
+./dist/vista          # start the TUI
+./dist/vista init     # generate vista.json from a compose file
 ```
 
 ## Key Bindings

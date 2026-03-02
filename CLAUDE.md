@@ -5,10 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Run
 
 ```bash
-go build -o bin/vista .
-./bin/vista           # start TUI
-./bin/vista init      # generate vista.json from docker compose file
-./bin/vista init path/to/compose.yaml  # use a specific file
+go build -o dist/vista .
+./dist/vista           # start TUI
+./dist/vista init      # generate vista.json from docker compose file
+./dist/vista init path/to/compose.yaml  # use a specific file
 ```
 
 No test suite, linter config, or CI pipeline exists yet.

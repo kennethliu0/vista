@@ -24,7 +24,7 @@ builds:
 
 homebrew_casks:
   - name: vista
-    tap:
+    repository:
       owner: kennethliu0
       name: homebrew-tap
     homepage: "https://github.com/kennethliu0/vista"

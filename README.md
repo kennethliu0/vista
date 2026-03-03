@@ -21,8 +21,28 @@ Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](h
 
 ## Install
 
+**Homebrew (recommended):**
+
 ```
+brew install kennethliu0/tap/vista
+```
+
+**Download binary:**
+
+Download the latest binary from the [releases page](https://github.com/kennethliu0/vista/releases), then:
+
+```
+chmod +x vista
+sudo mv vista /usr/local/bin/vista
+```
+
+**From source** (requires Go 1.26+):
+
+```
+git clone https://github.com/kennethliu0/vista.git
+cd vista
 go build -o dist/vista .
+sudo mv dist/vista /usr/local/bin/vista
 ```
 
 > **macOS note:** If you download a pre-built binary instead of building from source, macOS may block it due to Gatekeeper quarantine. Vista's install script removes the quarantine attribute automatically (`xattr -d com.apple.quarantine`). If you install manually, run that command yourself or go to System Settings → Privacy & Security to allow it.
@@ -91,8 +111,8 @@ Global views can also be created at runtime with the `g` key.
 ## Usage
 
 ```
-./dist/vista          # start the TUI
-./dist/vista init     # generate vista.json from a compose file
+vista          # start the TUI
+vista init     # generate vista.json from a compose file
 ```
 
 ## Key Bindings

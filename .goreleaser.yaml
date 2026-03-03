@@ -29,6 +29,12 @@ homebrew_casks:
       name: homebrew-tap
     homepage: "https://github.com/kennethliu0/vista"
     description: "Service manager with per-service and interleaved logs"
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/vista"]
+          end
 
 archives:
   - formats: [tar.gz]

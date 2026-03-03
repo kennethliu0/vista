@@ -25,6 +25,8 @@ Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), [Bubbles](h
 go build -o dist/vista .
 ```
 
+> **macOS note:** If you download a pre-built binary instead of building from source, macOS may block it due to Gatekeeper quarantine. Vista's install script removes the quarantine attribute automatically (`xattr -d com.apple.quarantine`). If you install manually, run that command yourself or go to System Settings → Privacy & Security to allow it.
+
 ## Quick Start
 
 Generate a `vista.json` from an existing service config:

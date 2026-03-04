@@ -78,17 +78,43 @@ Define your services in `./vista.json` for each project (or `~/.config/vista/vis
 
 ```json
 {
-  "services": [
-    {"name": "backend",  "cmd": "go run .", "dir": "~/projects/backend"},
-    {"name": "frontend", "cmd": "npm start", "dir": "~/projects/frontend"},
-    {"name": "worker",   "cmd": "python worker.py", "dir": "~/projects/worker"}
-  ],
-  "globalViews": [
-    {"name": "All", "services": []},
-    {"name": "Backend", "services": ["backend", "worker"]}
+  "profiles": [
+    {
+      "name": "dev",
+      "default": true,
+      "services": [
+        {"name": "backend",  "cmd": "go run .", "dir": "~/projects/backend"},
+        {"name": "frontend", "cmd": "npm start", "dir": "~/projects/frontend"},
+        {"name": "worker",   "cmd": "python worker.py", "dir": "~/projects/worker"}
+      ],
+      "globalViews": [
+        {"name": "All", "services": []},
+        {"name": "Backend", "services": ["backend", "worker"]}
+      ]
+    },
+    {
+      "name": "staging",
+      "services": [
+        {"name": "backend",  "cmd": "./run-staging.sh", "dir": "~/projects/backend"}
+      ],
+      "globalViews": [
+        {"name": "All", "services": []}
+      ]
+    }
   ]
 }
 ```
+
+### Profiles
+
+A `vista.json` can contain multiple named profiles — useful for switching between dev, staging, and other environments without maintaining separate config files.
+
+| Field | Description |
+|-------|-------------|
+| `name` | Profile identifier used on the CLI |
+| `default` | If `true`, this profile is used when no name is given. If no profile has `"default": true`, the first profile is used. |
+| `services` | Services for this profile |
+| `globalViews` | Global views for this profile |
 
 ### Services
 
@@ -111,9 +137,12 @@ Global views can also be created at runtime with the `g` key.
 ## Usage
 
 ```
-vista          # start the TUI
-vista init     # generate vista.json from a compose file
+vista                  # start the TUI (uses profile marked "default": true, or first profile)
+vista <profile>        # start the TUI with a named profile
+vista init             # generate vista.json from a compose/Procfile
 ```
+
+The active profile name is shown in the title bar when one is set.
 
 ## Key Bindings
 

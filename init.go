@@ -165,9 +165,15 @@ func runInit(file string) error {
 	}
 
 	cfg := configFile{
-		Services: services,
-		GlobalViews: []globalViewConfig{
-			{Name: "All", Services: []string{}},
+		Profiles: []profileConfig{
+			{
+				Name:    "default",
+				Default: true,
+				Services: services,
+				GlobalViews: []globalViewConfig{
+					{Name: "All", Services: []string{}},
+				},
+			},
 		},
 	}
 

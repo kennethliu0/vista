@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 go build -o dist/vista .
-./dist/vista           # start TUI
-./dist/vista init      # generate vista.json from docker compose file
+./dist/vista                    # start TUI (uses default profile)
+./dist/vista <profile>          # start TUI with a named profile
+./dist/vista init               # generate vista.json from a compose/Procfile
 ./dist/vista init path/to/compose.yaml  # use a specific file
 ```
 
@@ -31,9 +32,9 @@ Vista is a Bubble Tea TUI that manages multiple service processes and aggregates
 
 **Follow mode** (`model.go`): `followMode` defaults to `true`. `renderTickMsg` only calls `GotoBottom()` when enabled. Scrolling up (keyboard or mouse) disables it automatically. `f` re-enables and jumps to bottom.
 
-**Config** (`main.go`): Services are loaded from `~/.config/vista/vista.json` at startup. No hot-reload.
+**Config** (`main.go`): Services are loaded from `./vista.json` (or `~/.config/vista/vista.json` as fallback) at startup. The config uses a `profiles` array; `vista <name>` selects a named profile, bare `vista` uses the profile marked `"default": true` (or first if none). Profile name `"init"` is reserved. The resolved profile name is passed to the model and shown in the title bar. No hot-reload.
 
-**Init subcommand** (`init.go`): `vista init [file]` parses a service config file (auto-discovered or explicitly provided) and writes a `vista.json` to the current directory. Adds a single `"All"` global view. Refuses to overwrite an existing `vista.json`.
+**Init subcommand** (`init.go`): `vista init [file]` parses a service config file (auto-discovered or explicitly provided) and writes a `vista.json` to the current directory using the profiles format (single profile named `"default"` with `"default": true`). Adds a single `"All"` global view. Refuses to overwrite an existing `vista.json`.
 
 - Auto-discovery priority: `Procfile` → `compose.yaml` → `compose.yml` → `docker-compose.yaml` → `docker-compose.yml`
 - Format is detected from the filename: `Procfile` → procfile parser (name: command lines); `*.yaml`/`*.yml` → compose parser (`docker compose up <name>` per service)

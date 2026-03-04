@@ -39,9 +39,10 @@ type model struct {
 	searchErr     error
 	matchLines    []int
 	matchIdx      int
+	profileName   string
 }
 
-func newModel(services []*Service, views []*globalView, logCh chan tea.Msg) model {
+func newModel(services []*Service, views []*globalView, logCh chan tea.Msg, profileName string) model {
 	items := make([]list.Item, 0, len(views)+len(services))
 	for _, gv := range views {
 		items = append(items, gv)
@@ -82,6 +83,7 @@ func newModel(services []*Service, views []*globalView, logCh chan tea.Msg) mode
 		nextViewNum:  nextNum,
 		searchInput:  ti,
 		followMode:   true,
+		profileName:  profileName,
 	}
 }
 
@@ -694,6 +696,9 @@ func (m model) View() string {
 
 	// Title bar
 	titleText := " Vista — Log Aggregator"
+	if m.profileName != "" {
+		titleText = fmt.Sprintf(" Vista — Log Aggregator · %s", m.profileName)
+	}
 	if m.sidebarHidden {
 		n := len(m.globalViews) + len(m.services)
 		idx := m.list.Index()

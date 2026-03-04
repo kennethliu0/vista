@@ -1,4 +1,5 @@
 {
+  "$schema": "./vista.schema.json",
   "profiles": [
     {
       "name": "stuff",

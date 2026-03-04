@@ -57,11 +57,11 @@ vista init
 
 Vista searches the current directory in priority order and uses the first match:
 
-| File | Format |
-|------|--------|
-| `Procfile` | Foreman/Overmind — uses each entry's command directly |
-| `compose.yaml` / `compose.yml` | Docker Compose — runs each service via `docker compose up <name>` |
-| `docker-compose.yaml` / `docker-compose.yml` | Docker Compose — same as above |
+| File                                         | Format                                                            |
+| -------------------------------------------- | ----------------------------------------------------------------- |
+| `Procfile`                                   | Foreman/Overmind — uses each entry's command directly             |
+| `compose.yaml` / `compose.yml`               | Docker Compose — runs each service via `docker compose up <name>` |
+| `docker-compose.yaml` / `docker-compose.yml` | Docker Compose — same as above                                    |
 
 You can also point it at a specific file — the format is detected from the filename:
 
@@ -76,30 +76,45 @@ If both a `Procfile` and a compose file exist, auto-discovery picks the `Procfil
 
 Define your services in `./vista.json` for each project (or `~/.config/vista/vista.json` for global config).
 
+### Editor support
+
+Add a `$schema` reference for autocomplete and validation in VS Code and any JSON Schema-aware editor:
+
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/kennethliu0/vista/main/vista.schema.json",
   "profiles": [
     {
       "name": "dev",
       "default": true,
       "services": [
-        {"name": "backend",  "cmd": "go run .", "dir": "~/projects/backend"},
-        {"name": "frontend", "cmd": "npm start", "dir": "~/projects/frontend"},
-        {"name": "worker",   "cmd": "python worker.py", "dir": "~/projects/worker"}
+        { "name": "backend", "cmd": "go run .", "dir": "~/projects/backend" },
+        {
+          "name": "frontend",
+          "cmd": "npm start",
+          "dir": "~/projects/frontend"
+        },
+        {
+          "name": "worker",
+          "cmd": "python worker.py",
+          "dir": "~/projects/worker"
+        }
       ],
       "globalViews": [
-        {"name": "All", "services": []},
-        {"name": "Backend", "services": ["backend", "worker"]}
+        { "name": "All", "services": [] },
+        { "name": "Backend", "services": ["backend", "worker"] }
       ]
     },
     {
       "name": "staging",
       "services": [
-        {"name": "backend",  "cmd": "./run-staging.sh", "dir": "~/projects/backend"}
+        {
+          "name": "backend",
+          "cmd": "./run-staging.sh",
+          "dir": "~/projects/backend"
+        }
       ],
-      "globalViews": [
-        {"name": "All", "services": []}
-      ]
+      "globalViews": [{ "name": "All", "services": [] }]
     }
   ]
 }
@@ -109,27 +124,27 @@ Define your services in `./vista.json` for each project (or `~/.config/vista/vis
 
 A `vista.json` can contain multiple named profiles — useful for switching between dev, staging, and other environments without maintaining separate config files.
 
-| Field | Description |
-|-------|-------------|
-| `name` | Profile identifier used on the CLI |
-| `default` | If `true`, this profile is used when no name is given. If no profile has `"default": true`, the first profile is used. |
-| `services` | Services for this profile |
-| `globalViews` | Global views for this profile |
+| Field         | Description                                                                                                            |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `name`        | Profile identifier used on the CLI                                                                                     |
+| `default`     | If `true`, this profile is used when no name is given. If no profile has `"default": true`, the first profile is used. |
+| `services`    | Services for this profile                                                                                              |
+| `globalViews` | Global views for this profile                                                                                          |
 
 ### Services
 
-| Field | Description |
-|-------|-------------|
-| `name` | Display name in the sidebar |
-| `cmd` | Shell command to run (executed via `sh -c`) |
-| `dir` | Working directory. Supports `~` expansion. |
+| Field     | Description                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------- |
+| `name`    | Display name in the sidebar                                                                             |
+| `cmd`     | Shell command to run (executed via `sh -c`)                                                             |
+| `dir`     | Working directory. Supports `~` expansion.                                                              |
 | `envFile` | Path to a `.env` file to load (optional). If omitted, Vista auto-loads `.env` from `dir` if one exists. |
 
 ### Global Views
 
-| Field | Description |
-|-------|-------------|
-| `name` | Display name in the sidebar (prefixed with `⊞`) |
+| Field      | Description                                                             |
+| ---------- | ----------------------------------------------------------------------- |
+| `name`     | Display name in the sidebar (prefixed with `⊞`)                         |
 | `services` | Array of service names to include. An empty array enables all services. |
 
 Global views can also be created at runtime with the `g` key.
@@ -146,24 +161,24 @@ The active profile name is shown in the title bar when one is set.
 
 ## Key Bindings
 
-| Key | Action |
-|-----|--------|
-| `h` / `l` | Switch to previous / next service or global view |
-| `j` / `k` | Scroll logs up / down |
-| `s` | Start selected service |
-| `x` | Stop selected service |
-| `r` | Restart selected service |
-| `g` | Create a new global view (all services enabled) |
-| `d` | Delete selected global view |
-| `1`–`9` | Toggle service on/off in the selected global view |
-| `b` | Hide / show the sidebar |
-| `t` | Toggle timestamps |
-| `f` | Toggle follow mode (auto-scroll) |
-| `/` | Enter search mode |
-| `n` / `N` | Jump to next / previous match |
-| `F` | Toggle filter mode (hide non-matching lines) |
-| `esc` | Clear search and return to normal mode |
-| `q` / `ctrl+c` | Stop all services and quit |
+| Key            | Action                                            |
+| -------------- | ------------------------------------------------- |
+| `h` / `l`      | Switch to previous / next service or global view  |
+| `j` / `k`      | Scroll logs up / down                             |
+| `s`            | Start selected service                            |
+| `x`            | Stop selected service                             |
+| `r`            | Restart selected service                          |
+| `g`            | Create a new global view (all services enabled)   |
+| `d`            | Delete selected global view                       |
+| `1`–`9`        | Toggle service on/off in the selected global view |
+| `b`            | Hide / show the sidebar                           |
+| `t`            | Toggle timestamps                                 |
+| `f`            | Toggle follow mode (auto-scroll)                  |
+| `/`            | Enter search mode                                 |
+| `n` / `N`      | Jump to next / previous match                     |
+| `F`            | Toggle filter mode (hide non-matching lines)      |
+| `esc`          | Clear search and return to normal mode            |
+| `q` / `ctrl+c` | Stop all services and quit                        |
 
 When a global view is selected, the sidebar splits to show a toggle panel at the bottom indicating which services are enabled or disabled. Use `1`–`9` to toggle individual services in the view.
 

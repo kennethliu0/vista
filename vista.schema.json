@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Vista Config",
+  "description": "Configuration file for Vista — a TUI log aggregator for multiple services.",
+  "type": "object",
+  "required": ["profiles"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "profiles": {
+      "type": "array",
+      "description": "List of named profiles. Run `vista <name>` to select one; bare `vista` uses the profile marked \"default\": true, or the first profile if none is marked.",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "services"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Profile identifier used on the CLI. The name \"init\" is reserved.",
+            "not": { "const": "init" }
+          },
+          "default": {
+            "type": "boolean",
+            "description": "If true, this profile is used when no name is passed to the CLI. Only one profile should be marked as default."
+          },
+          "services": {
+            "type": "array",
+            "description": "Services to manage in this profile.",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["name", "cmd"],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name shown in the sidebar. Must be unique within the profile."
+                },
+                "cmd": {
+                  "type": "string",
+                  "description": "Shell command to run (executed via sh -c). Supports pipes, loops, and other shell syntax."
+                },
+                "dir": {
+                  "type": "string",
+                  "description": "Working directory for the command. Supports ~ expansion. Defaults to the current directory if omitted."
+                },
+                "envFile": {
+                  "type": "string",
+                  "description": "Path to a .env file to load. Supports ~ expansion. If omitted, Vista auto-loads .env from dir if one exists."
+                }
+              }
+            }
+          },
+          "globalViews": {
+            "type": "array",
+            "description": "Named views that interleave logs from multiple services.",
+            "items": {
+              "type": "object",
+              "required": ["name"],
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "Display name shown in the sidebar (prefixed with ⊞)."
+                },
+                "services": {
+                  "type": "array",
+                  "description": "Service names to include. An empty array enables all services.",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -190,7 +190,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, waitForLog(m.logCh)
 
 	case tea.QuitMsg:
-		// ctrl+c sends QuitMsg — stop all services before exiting
 		for _, svc := range m.services {
 			if svc.Status == Running || svc.Status == Stopping {
 				svc.Stop()
@@ -211,6 +210,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.KeyMsg:
+		if msg.String() == "ctrl+c" {
+			var stopCmds []tea.Cmd
+			for _, svc := range m.services {
+				if svc.Status == Running || svc.Status == Stopping {
+					stopCmds = append(stopCmds, svc.Stop())
+				}
+			}
+			stopCmds = append(stopCmds, tea.Quit)
+			return m, tea.Batch(stopCmds...)
+		}
+
 		// Search mode intercept — handle all keys before global switch
 		if m.searchMode {
 			switch msg.String() {
